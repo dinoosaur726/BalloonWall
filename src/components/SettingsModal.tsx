@@ -83,63 +83,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         }
     }
 
-    // Canvas Trimming Logic
-    const processImage = (fileUrl: string): Promise<string | null> => {
-        return new Promise((resolve) => {
-            const img = new Image()
-            img.crossOrigin = "Anonymous"
-            img.src = fileUrl
-            img.onload = () => {
-                const canvas = document.createElement('canvas')
-                const w = img.width
-                const h = img.height
-                canvas.width = w
-                canvas.height = h
-                const ctx = canvas.getContext('2d')
-                if (!ctx) return resolve(fileUrl) // Fallback
 
-                ctx.drawImage(img, 0, 0)
-                const imageData = ctx.getImageData(0, 0, w, h)
-                const data = imageData.data
-
-                // Find boundaries
-                let minX = w, minY = h, maxX = 0, maxY = 0
-                let found = false
-
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const alpha = data[(y * w + x) * 4 + 3]
-                        if (alpha > 10) { // Transparency threshold
-                            if (x < minX) minX = x
-                            if (x > maxX) maxX = x
-                            if (y < minY) minY = y
-                            if (y > maxY) maxY = y
-                            found = true
-                        }
-                    }
-                }
-
-                if (!found) return resolve(fileUrl) // Empty image?
-
-                // Crop
-                const cropWidth = maxX - minX + 1
-                const cropHeight = maxY - minY + 1
-
-                // Add padding? 
-                const finalCanvas = document.createElement('canvas')
-                finalCanvas.width = cropWidth
-                finalCanvas.height = cropHeight
-                const finalCtx = finalCanvas.getContext('2d')
-                if (!finalCtx) return resolve(fileUrl)
-
-                finalCtx.drawImage(canvas, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
-
-                // Return Base64
-                resolve(finalCanvas.toDataURL('image/png'))
-            }
-            img.onerror = () => resolve(null)
-        })
-    }
 
     const handleRangeChange = (index: number, field: string, value: string | number) => {
         const newRanges = [...localSettings.amountRanges]

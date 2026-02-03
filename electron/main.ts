@@ -6,6 +6,7 @@ import Store from 'electron-store'
 // Standard CJS require for Electron
 const electron = require('electron')
 const { app, ipcMain, BrowserWindow, dialog } = electron
+import type { IpcMainInvokeEvent } from 'electron'
 
 // Resolve dirname for CJS/TS compatibility (Vite handles this)
 const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
@@ -138,7 +139,7 @@ ipcMain.handle('select-image', async () => {
 })
 
 // Save Base64 Data URL to Disk
-ipcMain.handle('save-cropped-image', async (_event, dataUrl: string) => {
+ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl: string) => {
   // data:image/png;base64,...
   const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
   if (!matches || matches.length !== 3) {

@@ -21,11 +21,29 @@ export interface Stack {
 interface Settings {
     wsPort: number
     amountRanges: { min: number; max: number; imageUrl: string; textColor?: string }[]
-    // maxCardsPerColumn removed
-
     isTransparent: boolean
     isGreenScreen: boolean
     hideUI: boolean
+}
+
+// Helper: Handles removing cards from a stack and recalculating its Y position
+// to keep the bottom anchored.
+const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null => {
+    const newCardIds = stack.cardIds.filter(id => !removedCardIds.includes(id))
+
+    if (newCardIds.length === 0) return null
+
+    // We removed K cards from the TOP (or effectively reducing height).
+    // To keep the Bottom Fixed, the Stack Y must Shift DOWN.
+    const STEP_REM = 2.5
+    const REM = 16
+    const shiftDown = removedCardIds.length * STEP_REM * REM * stack.scale
+
+    return {
+        ...stack,
+        cardIds: newCardIds,
+        y: stack.y + shiftDown
+    }
 }
 
 interface GameState {
@@ -60,7 +78,7 @@ interface GameState {
 
 export const useStore = create<GameState>((set, get) => ({
     cards: {},
-    stacks: {}, // Start empty? Or default stacks?
+    stacks: {},
     history: [],
 
     loadState: (newState) => set(newState),
@@ -83,7 +101,6 @@ export const useStore = create<GameState>((set, get) => ({
     addCard: (nickname, amount) => {
         const { settings } = get()
 
-        // Determine Image URL and Text Color
         let imageUrl = 'default'
         let textColor = '#2563eb' // Default Blue
 
@@ -103,8 +120,7 @@ export const useStore = create<GameState>((set, get) => ({
             textColor
         }
 
-        // Spawn logic: Find a spot? Or just spawn in center/random?
-        // Let's spawn at random positions within safe area (e.g. 100, 100 to 800, 500)
+        // Random spawn within safe area
         const x = 50 + Math.random() * 200
         const y = 50 + Math.random() * 200
 
@@ -138,14 +154,14 @@ export const useStore = create<GameState>((set, get) => ({
             cardIds,
             x,
             y,
-            scale: 1 // Default scale or inherit?
+            scale: 1
         }
         set(state => ({
             stacks: { ...state.stacks, [newStackId]: newStack }
         }))
     },
 
-    moveStack: (stackId, x, y) => {
+    moveStack: (stackId: string, x: number, y: number) => {
         set(state => ({
             stacks: {
                 ...state.stacks,
@@ -158,53 +174,35 @@ export const useStore = create<GameState>((set, get) => ({
     moveCardsToStack: (cardIds: string[], targetStackId: string) => {
         set(state => {
             const firstCardId = cardIds[0]
-            // Find source stack
             const sourceStackEntry = Object.entries(state.stacks).find(([_, s]) => s.cardIds.includes(firstCardId))
             if (!sourceStackEntry) return state
             const [sourceStackId, sourceStack] = sourceStackEntry
 
-            // Remove from source
-            const newSourceCardIds = sourceStack.cardIds.filter(id => !cardIds.includes(id))
+            if (sourceStackId === targetStackId) return state
 
-            // Add to target
             const targetStack = state.stacks[targetStackId]
             if (!targetStack) return state
 
-            // Prevent merging into itself if it's the same stack
-            if (sourceStackId === targetStackId) return state
-
             const newStacks = { ...state.stacks }
-            const REM = 16
-            // Exact Step: 9rem (Card Height) - 6.5rem (Overlap) = 2.5rem
-            const STEP_REM = 2.5
 
-            // 1. Handle Source Stack (Splitting Top)
-            if (newSourceCardIds.length === 0) {
+            // 1. Update Source Stack
+            const sourceResult = updateSourceStack(sourceStack, cardIds)
+            if (sourceResult === null) {
                 delete newStacks[sourceStackId]
             } else {
-                // We removed K cards from the TOP.
-                // To keep the Bottom Fixed, the Source Stack Y must Shift DOWN.
-                // Shift = K * Step * Scale
-                const removedCount = cardIds.length
-                const shiftDown = removedCount * STEP_REM * REM * sourceStack.scale
-
-                newStacks[sourceStackId] = {
-                    ...sourceStack,
-                    cardIds: newSourceCardIds,
-                    y: sourceStack.y + shiftDown
-                }
+                newStacks[sourceStackId] = sourceResult
             }
 
-            // 2. Handle Target Stack (Adding to Top)
-            // We adding K cards to the TOP.
-            // To keep the Bottom Fixed, the Target Stack Y must Shift UP.
-            // Shift = K * Step * Scale
+            // 2. Update Target Stack (Adding to Top -> Shift Up)
             const addCount = cardIds.length
+            // Exact Step: 9rem (Card Height) - 6.5rem (Overlap) = 2.5rem
+            const STEP_REM = 2.5
+            const REM = 16
             const shiftUp = addCount * STEP_REM * REM * targetStack.scale
 
             newStacks[targetStackId] = {
                 ...targetStack,
-                cardIds: [...cardIds, ...targetStack.cardIds], // Prepend: New cards on Top
+                cardIds: [...cardIds, ...targetStack.cardIds],
                 y: targetStack.y - shiftUp
             }
 
@@ -219,41 +217,25 @@ export const useStore = create<GameState>((set, get) => ({
             if (!sourceStackEntry) return state
             const [sourceStackId, sourceStack] = sourceStackEntry
 
-            // Remove from source
-            const newSourceCardIds = sourceStack.cardIds.filter(id => !cardIds.includes(id))
+            const newStacks = { ...state.stacks }
 
-            // Create new stack at dropped position (x, y)
+            // 1. Update Source Stack
+            const sourceResult = updateSourceStack(sourceStack, cardIds)
+            if (sourceResult === null) {
+                delete newStacks[sourceStackId]
+            } else {
+                newStacks[sourceStackId] = sourceResult
+            }
+
+            // 2. Create New Stack
             const newStackId = uuidv4()
-            const newStack: Stack = {
+            newStacks[newStackId] = {
                 id: newStackId,
                 cardIds: cardIds,
                 x,
                 y,
                 scale: sourceStack.scale
             }
-
-            const newStacks = { ...state.stacks }
-            const REM = 16
-            const STEP_REM = 2.5 // Exact Step
-
-            // 1. Handle Source Stack (Splitting Top)
-            if (newSourceCardIds.length === 0) {
-                delete newStacks[sourceStackId]
-            } else {
-                // We removed K cards from the TOP.
-                // To keep the Bottom Fixed, the Source Stack Y must Shift DOWN.
-                // Shift = K * Step * Scale
-                const removedCount = cardIds.length
-                const shiftDown = removedCount * STEP_REM * REM * sourceStack.scale
-
-                newStacks[sourceStackId] = {
-                    ...sourceStack,
-                    cardIds: newSourceCardIds,
-                    y: sourceStack.y + shiftDown
-                }
-            }
-
-            newStacks[newStackId] = newStack
 
             return { stacks: newStacks }
         })
@@ -264,32 +246,17 @@ export const useStore = create<GameState>((set, get) => ({
             const stacks = { ...state.stacks }
             const cards = { ...state.cards }
 
-            // 1. Delete Card Data
             delete cards[cardId]
 
-            // 2. Remove from Stack
             const stackEntry = Object.entries(stacks).find(([_, s]) => s.cardIds.includes(cardId))
             if (stackEntry) {
                 const [stackId, stack] = stackEntry
-                const newCardIds = stack.cardIds.filter(id => id !== cardId)
 
-                if (newCardIds.length === 0) {
-                    // Delete empty stack
+                const sourceResult = updateSourceStack(stack, [cardId])
+                if (sourceResult === null) {
                     delete stacks[stackId]
                 } else {
-                    // Update stack
-                    // Calculate Y Shift to keep Bottom Fixed
-                    // Height decreases by 1 Step (2.5rem).
-                    // So Top (y) must move DOWN by 1 Step to keep Bottom in place.
-                    const REM = 16
-                    const STEP_REM = 2.5
-                    const shiftDown = STEP_REM * REM * stack.scale
-
-                    stacks[stackId] = {
-                        ...stack,
-                        cardIds: newCardIds,
-                        y: stack.y + shiftDown
-                    }
+                    stacks[stackId] = sourceResult
                 }
             }
 

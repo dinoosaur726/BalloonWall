@@ -16,6 +16,13 @@ import { Stack } from './components/Stack'
 import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
 
+// Augment React CSSProperties for Electron Drag Regions
+declare module 'react' {
+  interface CSSProperties {
+    WebkitAppRegion?: 'drag' | 'no-drag'
+  }
+}
+
 // Global window type is handled by electron-env.d.ts
 
 function App() {
@@ -78,16 +85,12 @@ function App() {
 
   // Drag Logic
   const handleDragStart = (event: DragStartEvent) => {
-    setIsInteracting(true) // Keep on while dragging
+    setIsInteracting(true)
     if (interactionTimer) clearTimeout(interactionTimer)
 
     setActiveId(event.active.id as string)
 
-    // Store initial position of the stack/card being dragged to apply delta?
-    // Actually dnd-kit delta is relative to start.
-    // We need the *original* stack position to calculate new absolute position.
-
-    // Find source stack
+    // Find source stack to store initial position
     const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(event.active.id as string))
     if (sourceStackEntry) {
       setDragStartPos({ x: sourceStackEntry.x, y: sourceStackEntry.y })
@@ -100,14 +103,12 @@ function App() {
     const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(activeId))
     if (!sourceStackEntry) return []
     const index = sourceStackEntry.cardIds.indexOf(activeId)
-    // Logic: Select index and everything BEFORE it (Top of stack)
-    // Array: [Top (0), ..., Selected (i), ..., Bottom (n)]
-    // We want [0...i]
+    // Select index and everything BEFORE it (Top of stack)
     return sourceStackEntry.cardIds.slice(0, index + 1)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
-    triggerInteraction() // Trigger timeout on release
+    triggerInteraction()
     const { active, over, delta } = event
     setActiveId(null)
     setDragStartPos(null)
@@ -117,8 +118,6 @@ function App() {
 
     // Case 1: Dropped on another Stack (Merge)
     if (over && over.id !== 'canvas') {
-      // Find which stack we dropped on
-      // over.id might be a card inside a stack or the stack itself
       let targetStackId = over.id as string
 
       // If dropped on a card, find its stack
@@ -130,22 +129,17 @@ function App() {
       }
     }
 
-    // Case 2: Dropped on Canvas (or null/empty space) -> Move/Create Stack
-    // Default to canvas drop if no other target found, and we have a start pos
+    // Case 2: Dropped on Canvas -> Move/Create Stack
     if (dragStartPos) {
-      // Calculate new X, Y
       const newX = dragStartPos.x + delta.x
       const newY = dragStartPos.y + delta.y
+      const REM = 16
 
       // Snapping Logic
       const SNAP_DIST = 20
       const WINDOW_W = window.innerWidth
       const WINDOW_H = window.innerHeight
 
-      // Calculate Dimensions of Dragged Group
-      // 1rem = 16px.
-      const REM = 16
-      // We need source stack scale.
       const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(active.id as string))
       const currentScale = sourceStackEntry ? sourceStackEntry.scale : 1
 
@@ -163,34 +157,24 @@ function App() {
       if (finalY + totalHeight > WINDOW_H - SNAP_DIST) finalY = WINDOW_H - totalHeight
 
       // --- Stack-to-Stack Side Snapping ---
-      // Iterate all OTHER stacks
       for (const stack of Object.values(stacks)) {
-        // Skip self (if moving whole stack)
-        // If splitting, we are creating a NEW stack, so we shouldn't snap to "source stack"? 
-        // Actually, if we split, the source stack is at original pos. We CAN snap to it side-by-side. 
-        // But we must skip snapping to ourself if we are moving the WHOLE stack.
+        // Skip self if moving whole stack with same ID (though usually we split off)
         if (activeId && stack.cardIds.includes(activeId) && draggedGroup.length === stack.cardIds.length) {
           continue
         }
 
-        // Calculate Other Stack Dimensions
         const otherScale = stack.scale
         const otherW = 8 * REM * otherScale
-        // We usually care about Width for side snapping.
 
-        // Snap to Right Side of Other (My Left -> Other Right)
-        // Distance between My Left (finalX) and Other Right (stack.x + otherW)
+        // Snap to Right Side of Other
         if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST) {
-          finalX = stack.x + otherW + 1 // Add 1px buffer to avoid overlap visual
-          // Auto Align Top if close
+          finalX = stack.x + otherW + 1
           if (Math.abs(finalY - stack.y) < SNAP_DIST) finalY = stack.y
         }
 
-        // Snap to Left Side of Other (My Right -> Other Left)
-        // Distance between My Right (finalX + cardWidth) and Other Left (stack.x)
+        // Snap to Left Side of Other
         if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST) {
-          finalX = stack.x - cardWidth - 1 // Add 1px buffer
-          // Auto Align Top if close
+          finalX = stack.x - cardWidth - 1
           if (Math.abs(finalY - stack.y) < SNAP_DIST) finalY = stack.y
         }
       }
@@ -208,15 +192,15 @@ function App() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Custom Drag Handle (Visible when UI is shown) */}
+      {/* Custom Drag Handle */}
       <div
         className={`fixed top-0 left-0 w-full h-8 z-[9000] transition-opacity hover:bg-white/10 ${settings.hideUI ? 'hidden' : 'block cursor-move'}`}
-        style={{ WebkitAppRegion: 'drag' } as any}
+        style={{ WebkitAppRegion: 'drag' }}
       />
 
       <button
         onClick={() => setShowSettings(true)}
-        style={{ zIndex: 9999, WebkitAppRegion: 'no-drag' } as any} // Ensure button is always clickable and not draggable
+        style={{ zIndex: 9999, WebkitAppRegion: 'no-drag' }}
         className={`fixed top-6 right-6 p-3 bg-black/40 text-white/70 rounded-full hover:bg-black/60 hover:text-white hover:scale-110 active:scale-95 transition-all pointer-events-auto backdrop-blur-md shadow-lg border border-white/5 ${settings.hideUI ? 'hidden' : ''}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -231,14 +215,9 @@ function App() {
       <div
         ref={setCanvasRef}
         className={`relative w-full h-full pointer-events-auto transition-colors duration-300 overflow-hidden ${settings.isGreenScreen ? 'bg-[#00b140]' :
-          (settings.isTransparent && (activeId || isInteracting)) ? 'bg-black/60' : // Visible on interaction
+          (settings.isTransparent && (activeId || isInteracting)) ? 'bg-black/60' :
             settings.isTransparent ? 'bg-transparent' : 'bg-[#222]'
           }`}
-        style={{
-          backgroundColor: settings.isGreenScreen ? '#00b140' :
-            (settings.isTransparent && (activeId || isInteracting)) ? 'rgba(0,0,0,0.6)' :
-              settings.isTransparent ? 'transparent' : '#222'
-        }}
       >
         {Object.values(stacks).map(stack => {
           const scale = stack.scale
