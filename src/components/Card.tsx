@@ -25,13 +25,13 @@ export const Card: React.FC<CardProps> = ({ id, nickname, amount, imageUrl, text
     })
 
     // Physical scaling logic to affect layout flow
-    const baseWidthRem = 8 // w-32 = 8rem
+    const baseWidthRem = 14.4 // 1.8 * 8rem
     const currentWidthRem = baseWidthRem * scale
 
     const style = {
         // marginBottom is handled by parent wrapper in App.tsx now
         width: `${currentWidthRem}rem`,
-        height: `${9 * scale}rem`, // Fixed Height for exact physics (6rem img + 3rem text)
+        height: `${10.5 * scale}rem`, // Adjusted height (8rem img + 2.5rem text)
         fontSize: `${0.875 * scale}rem`,
     }
 
@@ -59,7 +59,7 @@ export const Card: React.FC<CardProps> = ({ id, nickname, amount, imageUrl, text
             */}
             <div
                 className="w-full bg-gray-100 relative"
-                style={{ height: `${7.2 * scale}rem` }} // Scale the image container height (Increased from 6)
+                style={{ height: `${8 * scale}rem` }} // 14.4 / 1.8 = 8rem height for 1.8:1 ratio
             >
                 {imageUrl === 'gold' && <div className="w-full h-full bg-yellow-400" />}
                 {imageUrl === 'silver' && <div className="w-full h-full bg-gray-400" />}

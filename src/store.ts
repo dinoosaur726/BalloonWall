@@ -85,7 +85,7 @@ export const useStore = create<GameState>((set, get) => ({
     resetState: () => set({ cards: {}, stacks: {}, history: [] }),
 
     settings: {
-        wsPort: 3000,
+        wsPort: 3005,
         amountRanges: [
             { min: 0, max: 99, imageUrl: 'default' },
             { min: 100, max: 999, imageUrl: 'bronze' },
@@ -120,31 +120,64 @@ export const useStore = create<GameState>((set, get) => ({
             textColor
         }
 
-        // Random spawn within safe area
-        const x = 50 + Math.random() * 200
-        const y = 50 + Math.random() * 200
+        // Try to find a target stack (Largest one)
+        const stackValues = Object.values(get().stacks)
+        const targetStack = stackValues.length > 0
+            ? stackValues.reduce((prev, current) => (prev.cardIds.length > current.cardIds.length) ? prev : current)
+            : null
 
-        const newStackId = uuidv4()
-        const newStack: Stack = {
-            id: newStackId,
-            cardIds: [newCard.id],
-            x,
-            y,
-            scale: 1
+        if (targetStack) {
+            // Add to Top of Target Stack
+            const STEP_REM = 2.5
+            const REM = 16
+            const shiftUp = STEP_REM * REM * targetStack.scale
+
+            const updatedStack = {
+                ...targetStack,
+                cardIds: [newCard.id, ...targetStack.cardIds],
+                y: targetStack.y - shiftUp
+            }
+
+            const historyItem = {
+                id: uuidv4(),
+                nickname,
+                amount,
+                timestamp: Date.now()
+            }
+
+            set(state => ({
+                cards: { ...state.cards, [newCard.id]: newCard },
+                stacks: { ...state.stacks, [targetStack.id]: updatedStack },
+                history: [historyItem, ...state.history]
+            }))
+        } else {
+            // No stack exists, create new one
+            // Random spawn within safe area
+            const x = 50 + Math.random() * 200
+            const y = 50 + Math.random() * 200
+
+            const newStackId = uuidv4()
+            const newStack: Stack = {
+                id: newStackId,
+                cardIds: [newCard.id],
+                x,
+                y,
+                scale: 0.85 // Initial size 15% smaller
+            }
+
+            const historyItem = {
+                id: uuidv4(),
+                nickname,
+                amount,
+                timestamp: Date.now()
+            }
+
+            set(state => ({
+                cards: { ...state.cards, [newCard.id]: newCard },
+                stacks: { ...state.stacks, [newStackId]: newStack },
+                history: [historyItem, ...state.history]
+            }))
         }
-
-        const historyItem = {
-            id: uuidv4(),
-            nickname,
-            amount,
-            timestamp: Date.now()
-        }
-
-        set(state => ({
-            cards: { ...state.cards, [newCard.id]: newCard },
-            stacks: { ...state.stacks, [newStackId]: newStack },
-            history: [historyItem, ...state.history] // Newest first
-        }))
     },
 
     createStack: (cardIds, x, y) => {
@@ -282,9 +315,9 @@ export const useStore = create<GameState>((set, get) => ({
 
             // 2. Find Safe Position (Smart Placement)
             const REM = 16
-            const CARD_WIDTH_PX = 8 * REM // 128px
+            const CARD_WIDTH_PX = 14.4 * REM // 14.4rem
             // Approx height: (Cards * Step) + Height
-            const ESTIMATED_HEIGHT_PX = (cardsToMove.length * 2.5 * REM) + (9 * REM)
+            const ESTIMATED_HEIGHT_PX = (cardsToMove.length * 2.5 * REM) + (10.5 * REM)
             const SPACING = 20
 
             let safeX = 50
@@ -294,8 +327,8 @@ export const useStore = create<GameState>((set, get) => ({
             // Helper to check collision with REMAINING stacks
             const isOverlapping = (x: number, y: number, w: number, h: number) => {
                 return Object.values(stacks).some(s => {
-                    const sW = 8 * REM * s.scale
-                    const sH = ((s.cardIds.length - 1) * 2.5 + 9) * REM * s.scale
+                    const sW = 14.4 * REM * s.scale
+                    const sH = ((s.cardIds.length - 1) * 2.5 + 10.5) * REM * s.scale
 
                     // Simple AABB Collision
                     return !(
@@ -358,14 +391,14 @@ export const useStore = create<GameState>((set, get) => ({
 
             const REM = 16
             // Constants matching App.tsx/Card logic
-            const CARD_WIDTH_REM = 8
+            const CARD_WIDTH_REM = 14.4
             const STEP_HEIGHT_REM = 2.5
             // Stack Height = ((Count - 1) * Step + CardHeight) * Scale
 
             // 1. Bottom-Left Anchor Calculation
             const count = stack.cardIds.length
             // Height in pixels without scale
-            const baseHeight = ((count - 1) * STEP_HEIGHT_REM + 9) * REM
+            const baseHeight = ((count - 1) * STEP_HEIGHT_REM + 10.5) * REM
 
             const oldHeight = baseHeight * oldScale
             const newHeight = baseHeight * newScale

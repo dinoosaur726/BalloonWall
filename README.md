@@ -63,14 +63,14 @@ The output will be in the `release` or `dist` folder.
 
 ## 📡 WebSocket API (OBS / Stream Deck Integration)
 
-BalloonWall runs a local WebSocket server (default port: **3000**) to listen for incoming donation events.
+BalloonWall runs a local WebSocket server (default port: **3005**) to listen for incoming donation events.
 
-- **URL**: `ws://localhost:3000`
+- **URL**: `ws://localhost:3005`
 - **Message Format**: `Nickname/Amount`
 
 ### Example (JavaScript/Node.js):
 ```javascript
-const ws = new WebSocket('ws://localhost:3000');
+const ws = new WebSocket('ws://localhost:3005');
 ws.onopen = () => {
     // Send a donation event
     ws.send('Fan123/5000'); 

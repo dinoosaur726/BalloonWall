@@ -1,7 +1,8 @@
 {
   "name": "balloon-wall",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "author": "다이노소어",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",

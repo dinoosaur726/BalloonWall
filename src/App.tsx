@@ -67,6 +67,8 @@ function App() {
       addCard(data.nickname, data.amount)
     }
 
+    // Defensive: Remove any existing listeners first
+    window.ipcRenderer.removeAllListeners('new-donation')
     window.ipcRenderer.on('new-donation', handleNewDonation)
 
     // Global Hotkey: Escape opens settings (Exit Broadcast Mode)
@@ -78,7 +80,7 @@ function App() {
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      window.ipcRenderer.off('new-donation', handleNewDonation)
+      window.ipcRenderer.removeAllListeners('new-donation')
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
@@ -143,9 +145,9 @@ function App() {
       const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(active.id as string))
       const currentScale = sourceStackEntry ? sourceStackEntry.scale : 1
 
-      const cardWidth = 8 * REM * currentScale
+      const cardWidth = 14.4 * REM * currentScale
       const cardCount = draggedGroup.length
-      const totalHeight = ((cardCount - 1) * 2.5 + 9) * REM * currentScale
+      const totalHeight = ((cardCount - 1) * 2.5 + 10.5) * REM * currentScale
 
       let finalX = newX
       let finalY = newY
@@ -164,7 +166,7 @@ function App() {
         }
 
         const otherScale = stack.scale
-        const otherW = 8 * REM * otherScale
+        const otherW = 14.4 * REM * otherScale
 
         // Snap to Right Side of Other
         if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST) {
@@ -236,7 +238,8 @@ function App() {
                 if (!cardData) return null
 
                 // Overlap matches previous logic
-                const dynamicMargin = index > 0 ? `-${6.5 * scale}rem` : '0'
+                // Height 10.5rem - Step 2.5rem = 8rem overlap
+                const dynamicMargin = index > 0 ? `-${8 * scale}rem` : '0'
 
                 // Reversed Z-Index so top cards cover bottom cards (showing text at bottom of top card)
                 const zIndex = 50 - index
@@ -279,7 +282,7 @@ function App() {
               const sourceStack = Object.values(stacks).find(s => s.cardIds.includes(activeId))
               const scale = sourceStack ? sourceStack.scale : 1
 
-              const dynamicMargin = i > 0 ? `-${6.5 * scale}rem` : '0'
+              const dynamicMargin = i > 0 ? `-${8 * scale}rem` : '0'
 
               return (
                 <div

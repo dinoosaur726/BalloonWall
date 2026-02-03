@@ -2,7 +2,7 @@ import asyncio
 import websockets
 
 async def test_client():
-    uri = "ws://localhost:3000"
+    uri = "ws://localhost:3005"
     print(f"Connecting to {uri}...")
     try:
         async with websockets.connect(uri) as websocket:

@@ -11,7 +11,7 @@ interface StackProps {
     onScale?: (delta: number) => void
 }
 
-export const Stack: React.FC<StackProps> = ({ id, x, y, scale, children, onScale }) => {
+export const Stack: React.FC<StackProps> = ({ id, x, y, children, onScale }) => {
     const { setNodeRef, isOver } = useDroppable({
         id
     })

@@ -32,7 +32,7 @@ interface Settings {
 
 const store = new Store<Settings>({
   defaults: {
-    wsPort: 3000,
+    wsPort: 3005,
     amountRanges: [
       { min: 0, max: 99, imageUrl: 'default' },
       { min: 100, max: 999, imageUrl: 'bronze' },
@@ -88,7 +88,7 @@ function createWindow() {
     alwaysOnTop: false, // User requested standard window
     skipTaskbar: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.js'),
       webSecurity: false // Allow loading local resources (file://)
       // contextIsolation: true, // default true
       // nodeIntegration: false, // default false

@@ -4,7 +4,7 @@ import json
 import time
 
 # Configuration
-URI = "ws://localhost:3000"
+URI = "ws://localhost:3005"
 
 async def send_donation(websocket, nickname, amount, delay=0.5):
     msg = f"{nickname}/{amount}"
