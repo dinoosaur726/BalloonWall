@@ -1,0 +1,206 @@
+
+export class BalloonGenerator {
+    private static fontName = 'NanumGothicExtraBold';
+    private static fontLoaded = false;
+
+    private static log(msg: string) {
+        console.log(`[BalloonGenerator] ${msg}`);
+        if (window.ipcRenderer) {
+            window.ipcRenderer.send('log', `[BalloonGenerator] ${msg}`);
+        }
+    }
+
+    private static async loadFont() {
+        if (this.fontLoaded) return;
+        try {
+            this.log('Loading font...');
+            const font = new FontFace(this.fontName, 'url(/assets/NanumGothicExtraBold.ttf)');
+            await font.load();
+            document.fonts.add(font);
+            this.fontLoaded = true;
+            this.log('Font loaded successfully.');
+        } catch (e) {
+            this.log(`Failed to load font, using fallback: ${e}`);
+        }
+    }
+
+    private static getBalloonImage(amount: number): string {
+        if (amount >= 1 && amount <= 99) return '/assets/ba_step2.png';
+        if (amount >= 100 && amount <= 300) return '/assets/ba_step3.png';
+        if (amount >= 301 && amount <= 999) return '/assets/ba_step4.png';
+        if (amount >= 1000 && amount <= 4999) return '/assets/ba_step5.png';
+        if (amount >= 5000) return '/assets/ba_step6.png';
+        return '/assets/ba_step2.png';
+    }
+
+    private static loadImage(src: string): Promise<HTMLImageElement> {
+        return new Promise((resolve, reject) => {
+            console.log(`[BalloonGenerator] Loading image: ${src}`);
+            const img = new Image();
+            img.crossOrigin = 'Anonymous'; // Allow loading from external URLs for Canvas
+
+            const timeout = setTimeout(() => {
+                img.onload = null;
+                img.onerror = null;
+                reject(new Error(`Timeout loading image ${src}`));
+            }, 5000); // 5s timeout
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                console.log(`[BalloonGenerator] Loaded image: ${src}`);
+                resolve(img);
+            };
+            img.onerror = (e) => {
+                clearTimeout(timeout);
+                reject(new Error(`Failed to load image ${src}: ${JSON.stringify(e)}`));
+            };
+            img.src = src;
+        });
+    }
+
+    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[] }): Promise<string> {
+        let balloonSrc = '';
+        let isExternal = false;
+
+        // 1. Signature Check
+        if (sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
+            balloonSrc = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
+            isExternal = true;
+            this.log(`Attempting to load signature balloon: ${balloonSrc}`);
+        }
+
+        // 2. Standard External Check (If not signature)
+        if (!isExternal) {
+            // Try the standard external URL first
+            const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
+            try {
+                // Heuristic: Set it here, check load later.
+                balloonSrc = standardUrl;
+                isExternal = true;
+            } catch (e) {
+                // Ignored
+            }
+        }
+
+        const bgSrc = '/assets/n_b.png';
+
+        try {
+            let balloonImg: HTMLImageElement;
+            let bgImg: HTMLImageElement;
+
+            // Load Background (always needed)
+            bgImg = await this.loadImage(bgSrc);
+
+            // Load Balloon
+            try {
+                if (isExternal && !sigConfig?.signatureBalloons.includes(amount)) {
+                    // For standard external, we attempt load.
+                    balloonImg = await this.loadImage(balloonSrc);
+                } else if (isExternal) {
+                    // Signature
+                    balloonImg = await this.loadImage(balloonSrc);
+                } else {
+                    // Should not start here if logic above is correct, unless we want to force local
+                    balloonSrc = this.getBalloonImage(amount);
+                    balloonImg = await this.loadImage(balloonSrc);
+                }
+            } catch (error) {
+                this.log(`External load failed for ${balloonSrc}. Falling back.`);
+
+                // If it was Signature, try Standard External
+                if (sigConfig?.signatureBalloons.includes(amount)) {
+                    const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
+                    try {
+                        balloonImg = await this.loadImage(standardUrl);
+                        isExternal = true;
+                    } catch (err2) {
+                        // Standard failed, use Local
+                        balloonSrc = this.getBalloonImage(amount);
+                        balloonImg = await this.loadImage(balloonSrc);
+                        isExternal = false;
+                    }
+                } else {
+                    // Was trying Standard External, fallback to Local
+                    balloonSrc = this.getBalloonImage(amount);
+                    balloonImg = await this.loadImage(balloonSrc);
+                    isExternal = false;
+                }
+            }
+
+            // ... (Canvas creation)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Could not get canvas context');
+
+            // Python Logic: width is balloon width. Height is sum.
+            canvas.width = balloonImg.width;
+            canvas.height = balloonImg.height + bgImg.height;
+
+            // 1. Draw Balloon at (0,0)
+            ctx.drawImage(balloonImg, 0, 0);
+
+            // 2. Draw Background Panel at (0, balloonHeight)
+            ctx.drawImage(bgImg, 0, balloonImg.height);
+
+            // 3. Draw Amount on Balloon (ONLY IF NOT EXTERNAL)
+            if (!isExternal) {
+                await this.loadFont();
+
+                // Python: d_p_x centered on balloon, y=120
+                // Font size 50
+                ctx.font = `50px "${this.fontName}", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                const amountText = amount.toString();
+                const balloonCenterX = balloonImg.width / 2;
+                const amountY = 120;
+
+                // Outline (3px radius in Python -> ~6-8px stroke)
+                ctx.lineWidth = 8;
+                ctx.strokeStyle = 'white';
+                ctx.lineJoin = 'round';
+                ctx.strokeText(amountText, balloonCenterX, amountY);
+
+                // Fill
+                ctx.fillStyle = '#ff2f00';
+                ctx.fillText(amountText, balloonCenterX, amountY);
+            }
+
+            // 4. Draw Text on Background Panel
+            // ... (rest is same)
+            // But we need font loaded effectively. 
+            // If signature, we skipped loadFont? No, we need it for bottom panel.
+            if (isExternal) {
+                await this.loadFont();
+            }
+
+            // ... Text logic ...
+            ctx.font = `20px "${this.fontName}", sans-serif`;
+
+            const line1 = `${nickname}님`;
+            const line2 = `별풍선 ${amount.toLocaleString()}개`;
+
+            const bgCenterX = bgImg.width / 2;
+
+            const estimatedTextHeight = 20;
+            const textY1_Local = (bgImg.height - estimatedTextHeight) / 4;
+            const textY1_Global = balloonImg.height + textY1_Local;
+
+            ctx.fillStyle = '#ff2f00';
+            ctx.fillText(line1, bgCenterX, textY1_Global);
+
+            // Line 2
+            const textY2_Global = textY1_Global + estimatedTextHeight + 5;
+
+            ctx.fillStyle = 'black';
+            ctx.fillText(line2, bgCenterX, textY2_Global);
+
+            return canvas.toDataURL('image/png');
+
+        } catch (error) {
+            this.log(`Balloon generation failed: ${error}`);
+            throw error;
+        }
+    }
+}

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
+import { BalloonGenerator } from './utils/BalloonGenerator'
 
 interface CardData {
     id: string
@@ -18,23 +19,34 @@ export interface Stack {
     // We can add zIndex if needed, or rely on render order
 }
 
+const STANDARD_RANGES = [
+    { min: 0, max: 99, imageUrl: 'default', textColor: '#2563eb' },
+    { min: 100, max: 299, imageUrl: 'bronze', textColor: '#2563eb' },
+    { min: 300, max: 999, imageUrl: 'silver', textColor: '#2563eb' },
+    { min: 1000, max: 9999999, imageUrl: 'gold', textColor: '#2563eb' }
+]
+
 interface Settings {
     wsPort: number
-    amountRanges: { min: number; max: number; imageUrl: string; textColor?: string }[]
     isTransparent: boolean
     isGreenScreen: boolean
     hideUI: boolean
+    // Signature Balloon Config
+    streamerId?: string
+    signatureBalloons?: string // Space separated numbers: "100 200 1234"
+    // New Automation Settings
+    autoAdd: boolean
+    minAmount: number
 }
 
-// Helper: Handles removing cards from a stack and recalculating its Y position
-// to keep the bottom anchored.
+// ... (Stack update helpers remain same) ...
+
 const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null => {
+    // ...
     const newCardIds = stack.cardIds.filter(id => !removedCardIds.includes(id))
 
     if (newCardIds.length === 0) return null
 
-    // We removed K cards from the TOP (or effectively reducing height).
-    // To keep the Bottom Fixed, the Stack Y must Shift DOWN.
     const STEP_REM = 2.5
     const REM = 16
     const shiftDown = removedCardIds.length * STEP_REM * REM * stack.scale
@@ -52,6 +64,7 @@ interface GameState {
     settings: Settings
 
     // Actions
+    handleDonation: (nickname: string, amount: number) => void // New Action
     addCard: (nickname: string, amount: number) => void
 
     // Stack Operations
@@ -61,10 +74,9 @@ interface GameState {
     removeCard: (cardId: string) => void
     autoOrganize: () => void
     updateStackScale: (stackId: string, delta: number) => void
+    refreshCardImages: () => Promise<void>
 
-    // Drag/Drop Logic helpers
-    // When dropping a card/group on canvas: createStack
-    // When dropping a card/group on existing stack: append to stack (merge logic)
+    moveStack: (stackId: string, x: number, y: number) => void
 
     // History
     history: { id: string, nickname: string, amount: number, timestamp: number }[]
@@ -86,29 +98,68 @@ export const useStore = create<GameState>((set, get) => ({
 
     settings: {
         wsPort: 3005,
-        amountRanges: [
-            { min: 0, max: 99, imageUrl: 'default' },
-            { min: 100, max: 999, imageUrl: 'bronze' },
-            { min: 1000, max: 9999, imageUrl: 'silver' },
-            { min: 10000, max: 999999, imageUrl: 'gold' }
-        ],
-
         isTransparent: false,
         isGreenScreen: false,
-        hideUI: false
+        hideUI: false,
+        streamerId: '',
+        signatureBalloons: '',
+        autoAdd: true,
+        minAmount: 0
     },
 
-    addCard: (nickname, amount) => {
+    handleDonation: (nickname, amount) => {
+        const { settings, addCard } = get()
+
+        // 1. Always add to History (Req: History generates around the request)
+        const historyItem = {
+            id: uuidv4(),
+            nickname,
+            amount,
+            timestamp: Date.now()
+        }
+        set(state => ({ history: [historyItem, ...state.history] }))
+
+        // 2. Logic for Auto-Creation
+        if (settings.autoAdd) {
+            // Check Minimum Amount
+            if (amount >= settings.minAmount) {
+                addCard(nickname, amount)
+            }
+        }
+    },
+
+    addCard: async (nickname, amount) => {
         const { settings } = get()
 
         let imageUrl = 'default'
         let textColor = '#2563eb' // Default Blue
+        let useGenerator = false
 
-        for (const range of settings.amountRanges) {
+        // Use STANDARD_RANGES
+        for (const range of STANDARD_RANGES) {
             if (amount >= range.min && amount <= range.max) {
                 imageUrl = range.imageUrl
                 textColor = range.textColor || '#2563eb'
                 break
+            }
+        }
+
+        // Decide generator usage
+        if (['default', 'bronze', 'silver', 'gold'].includes(imageUrl)) {
+            useGenerator = true
+        }
+
+        if (useGenerator) {
+            try {
+                const sigConfig = {
+                    streamerId: settings.streamerId,
+                    signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : []
+                };
+
+                // Implicitly checks signature/external logic inside generator
+                imageUrl = await BalloonGenerator.generate(nickname, amount, sigConfig)
+            } catch (err) {
+                console.error("Generator failed, falling back", err)
             }
         }
 
@@ -120,14 +171,12 @@ export const useStore = create<GameState>((set, get) => ({
             textColor
         }
 
-        // Try to find a target stack (Largest one)
         const stackValues = Object.values(get().stacks)
         const targetStack = stackValues.length > 0
             ? stackValues.reduce((prev, current) => (prev.cardIds.length > current.cardIds.length) ? prev : current)
             : null
 
         if (targetStack) {
-            // Add to Top of Target Stack
             const STEP_REM = 2.5
             const REM = 16
             const shiftUp = STEP_REM * REM * targetStack.scale
@@ -138,21 +187,14 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
-            const historyItem = {
-                id: uuidv4(),
-                nickname,
-                amount,
-                timestamp: Date.now()
-            }
+            // REMOVED: History addition logic here.
+            // History is now separate.
 
             set(state => ({
                 cards: { ...state.cards, [newCard.id]: newCard },
                 stacks: { ...state.stacks, [targetStack.id]: updatedStack },
-                history: [historyItem, ...state.history]
             }))
         } else {
-            // No stack exists, create new one
-            // Random spawn within safe area
             const x = 50 + Math.random() * 200
             const y = 50 + Math.random() * 200
 
@@ -162,20 +204,14 @@ export const useStore = create<GameState>((set, get) => ({
                 cardIds: [newCard.id],
                 x,
                 y,
-                scale: 0.85 // Initial size 15% smaller
+                scale: 0.85
             }
 
-            const historyItem = {
-                id: uuidv4(),
-                nickname,
-                amount,
-                timestamp: Date.now()
-            }
+            // REMOVED: History addition logic here.
 
             set(state => ({
                 cards: { ...state.cards, [newCard.id]: newCard },
                 stacks: { ...state.stacks, [newStackId]: newStack },
-                history: [historyItem, ...state.history]
             }))
         }
     },
@@ -194,7 +230,7 @@ export const useStore = create<GameState>((set, get) => ({
         }))
     },
 
-    moveStack: (stackId: string, x: number, y: number) => {
+    moveStack: (stackId, x, y) => {
         set(state => ({
             stacks: {
                 ...state.stacks,
@@ -203,32 +239,25 @@ export const useStore = create<GameState>((set, get) => ({
         }))
     },
 
-    // Unified Move Logic
-    moveCardsToStack: (cardIds: string[], targetStackId: string) => {
+    moveCardsToStack: (cardIds, targetStackId) => {
+        // ... (existing implementation)
         set(state => {
             const firstCardId = cardIds[0]
             const sourceStackEntry = Object.entries(state.stacks).find(([_, s]) => s.cardIds.includes(firstCardId))
             if (!sourceStackEntry) return state
             const [sourceStackId, sourceStack] = sourceStackEntry
-
             if (sourceStackId === targetStackId) return state
-
             const targetStack = state.stacks[targetStackId]
             if (!targetStack) return state
 
             const newStacks = { ...state.stacks }
-
-            // 1. Update Source Stack
             const sourceResult = updateSourceStack(sourceStack, cardIds)
             if (sourceResult === null) {
                 delete newStacks[sourceStackId]
             } else {
                 newStacks[sourceStackId] = sourceResult
             }
-
-            // 2. Update Target Stack (Adding to Top -> Shift Up)
             const addCount = cardIds.length
-            // Exact Step: 9rem (Card Height) - 6.5rem (Overlap) = 2.5rem
             const STEP_REM = 2.5
             const REM = 16
             const shiftUp = addCount * STEP_REM * REM * targetStack.scale
@@ -243,7 +272,7 @@ export const useStore = create<GameState>((set, get) => ({
         })
     },
 
-    moveCardsToCanvas: (cardIds: string[], x: number, y: number) => {
+    moveCardsToCanvas: (cardIds, x, y) => {
         set(state => {
             const firstCardId = cardIds[0]
             const sourceStackEntry = Object.entries(state.stacks).find(([_, s]) => s.cardIds.includes(firstCardId))
@@ -251,8 +280,6 @@ export const useStore = create<GameState>((set, get) => ({
             const [sourceStackId, sourceStack] = sourceStackEntry
 
             const newStacks = { ...state.stacks }
-
-            // 1. Update Source Stack
             const sourceResult = updateSourceStack(sourceStack, cardIds)
             if (sourceResult === null) {
                 delete newStacks[sourceStackId]
@@ -260,7 +287,6 @@ export const useStore = create<GameState>((set, get) => ({
                 newStacks[sourceStackId] = sourceResult
             }
 
-            // 2. Create New Stack
             const newStackId = uuidv4()
             newStacks[newStackId] = {
                 id: newStackId,
@@ -278,13 +304,10 @@ export const useStore = create<GameState>((set, get) => ({
         set(state => {
             const stacks = { ...state.stacks }
             const cards = { ...state.cards }
-
             delete cards[cardId]
-
             const stackEntry = Object.entries(stacks).find(([_, s]) => s.cardIds.includes(cardId))
             if (stackEntry) {
                 const [stackId, stack] = stackEntry
-
                 const sourceResult = updateSourceStack(stack, [cardId])
                 if (sourceResult === null) {
                     delete stacks[stackId]
@@ -292,45 +315,33 @@ export const useStore = create<GameState>((set, get) => ({
                     stacks[stackId] = sourceResult
                 }
             }
-
             return { cards, stacks }
         })
     },
 
     autoOrganize: () => {
+        // ... (existing implementation)
         set(state => {
             const stacks = { ...state.stacks }
             const stackValues = Object.values(stacks)
-
-            // 1. Identify Singles
             const singleStacks = stackValues.filter(s => s.cardIds.length === 1)
-
             if (singleStacks.length === 0) return {}
-
             const cardsToMove: string[] = []
             singleStacks.forEach(s => {
                 cardsToMove.push(...s.cardIds)
                 delete stacks[s.id]
             })
-
-            // 2. Find Safe Position (Smart Placement)
             const REM = 16
-            const CARD_WIDTH_PX = 14.4 * REM // 14.4rem
-            // Approx height: (Cards * Step) + Height
+            const CARD_WIDTH_PX = 14.4 * REM
             const ESTIMATED_HEIGHT_PX = (cardsToMove.length * 2.5 * REM) + (10.5 * REM)
             const SPACING = 20
-
             let safeX = 50
             let safeY = 50
             let found = false
-
-            // Helper to check collision with REMAINING stacks
             const isOverlapping = (x: number, y: number, w: number, h: number) => {
                 return Object.values(stacks).some(s => {
                     const sW = 14.4 * REM * s.scale
                     const sH = ((s.cardIds.length - 1) * 2.5 + 10.5) * REM * s.scale
-
-                    // Simple AABB Collision
                     return !(
                         x + w < s.x ||
                         x > s.x + sW ||
@@ -339,31 +350,23 @@ export const useStore = create<GameState>((set, get) => ({
                     )
                 })
             }
-
-            // Search Loop
             let attempt = 0
             while (attempt < 100) {
                 if (!isOverlapping(safeX, safeY, CARD_WIDTH_PX, ESTIMATED_HEIGHT_PX)) {
                     found = true
                     break
                 }
-                // Move Right
                 safeX += (CARD_WIDTH_PX + SPACING)
-                // Wrap to next row if too wide
                 if (safeX > 1600) {
                     safeX = 50
-                    safeY += 400 // Move down
+                    safeY += 400
                 }
                 attempt++
             }
-
-            // Fallback
             if (!found) {
                 safeX = 50 + Math.random() * 50
                 safeY = 50 + Math.random() * 50
             }
-
-            // 3. Create NEW Stack
             const newStackId = uuidv4()
             stacks[newStackId] = {
                 id: newStackId,
@@ -372,149 +375,139 @@ export const useStore = create<GameState>((set, get) => ({
                 y: safeY,
                 scale: 1
             }
-
             return { stacks }
         })
     },
 
     updateStackScale: (stackId, delta) => {
+        // ... (existing implementation)
         set(state => {
             const stack = state.stacks[stackId]
             if (!stack) return state
-
-            const step = 0.05 // Faster scaling
+            const step = 0.05
             const change = delta < 0 ? step : -step
             const oldScale = stack.scale
             const newScale = Math.max(0.2, Math.min(3, oldScale + change))
-
             if (oldScale === newScale) return state
-
             const REM = 16
-            // Constants matching App.tsx/Card logic
-            const CARD_WIDTH_REM = 14.4
             const STEP_HEIGHT_REM = 2.5
-            // Stack Height = ((Count - 1) * Step + CardHeight) * Scale
-
-            // 1. Bottom-Left Anchor Calculation
             const count = stack.cardIds.length
-            // Height in pixels without scale
             const baseHeight = ((count - 1) * STEP_HEIGHT_REM + 10.5) * REM
-
             const oldHeight = baseHeight * oldScale
             const newHeight = baseHeight * newScale
-
-            // To keep bottom fixed: Y_new = Y_old + (Height_old - Height_new)
-            // If getting smaller (new < old), Height decreases, Diff is positive -> Y increases (moves down). Correct.
-            // If getting larger (new > old), Height increases, Diff is negative -> Y decreases (moves up). Correct.
             const newY = stack.y + (oldHeight - newHeight)
-
             const newStacks = { ...state.stacks }
-            // Update the scaling stack
             const updatedStack = { ...stack, scale: newScale, y: newY }
             newStacks[stackId] = updatedStack
-
-            // 2. Collision Physics (Push or Pull)
-            const PUSH_GAP = 0 // User requested no margin (they stick together)
-            const SNAP_TOLERANCE = 5 // Distance to consider "touching" for pulling
-
-            const baseWidth = CARD_WIDTH_REM * REM
-
-            // Recursive Push (Growing)
+            const PUSH_GAP = 0
+            const SNAP_TOLERANCE = 5
+            const baseWidth = 14.4 * REM
             const pushNeighbors = (currentId: string, currentRightEdge: number) => {
                 const neighbors = Object.values(newStacks)
-                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x) // Strictly on right
-                    .sort((a, b) => a.x - b.x) // Closest first
-
+                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
+                    .sort((a, b) => a.x - b.x)
                 for (const neighbor of neighbors) {
-                    // If overlap (with 0 gap)
                     if (neighbor.x < currentRightEdge + PUSH_GAP) {
                         const pushDist = (currentRightEdge + PUSH_GAP) - neighbor.x
-                        // Move neighbor
                         newStacks[neighbor.id] = { ...neighbor, x: neighbor.x + pushDist }
-                        // Recurse
                         const neighborWidth = baseWidth * newStacks[neighbor.id].scale
                         pushNeighbors(neighbor.id, newStacks[neighbor.id].x + neighborWidth)
                     }
                 }
             }
-
-            // Recursive Pull (Shrinking)
             const pullNeighbors = (currentId: string, oldRightEdge: number, shiftAmount: number) => {
                 const neighbors = Object.values(newStacks)
-                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x) // Strictly on right
+                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
                     .sort((a, b) => a.x - b.x)
-
                 for (const neighbor of neighbors) {
-                    // Check if it WAS touching (or very close) to the OLD right edge
                     if (Math.abs(neighbor.x - oldRightEdge) < SNAP_TOLERANCE) {
-                        // Move neighbor LEFT by shiftAmount
-                        // We need to capture old X before updating for recursion
                         const neighborOldX = neighbor.x
                         const newNeighborX = neighbor.x + shiftAmount
-
                         newStacks[neighbor.id] = { ...neighbor, x: newNeighborX }
-
-                        // Recurse: Try to pull things attached to THIS neighbor
-                        // The neighbor's right edge also shifted by shiftAmount
                         const neighborWidth = baseWidth * neighbor.scale
-                        // Recurse using Neighbor's OLD right edge
                         pullNeighbors(neighbor.id, neighborOldX + neighborWidth, shiftAmount)
                     }
                 }
             }
-
             const oldWidth = baseWidth * oldScale
             const newWidth = baseWidth * newScale
-
             if (newScale > oldScale) {
-                // PUSH
                 pushNeighbors(stackId, updatedStack.x + newWidth)
             } else {
-                // PULL
-                // Check for neighbors at `updatedStack.x + oldWidth`
-                // Ensure we use the stack's CURRENT X (which didn't change, only Y changed for anchor)
-                const widthDiff = newWidth - oldWidth // Negative
+                const widthDiff = newWidth - oldWidth
                 pullNeighbors(stackId, updatedStack.x + oldWidth, widthDiff)
             }
-
             return { stacks: newStacks }
         })
     },
 
-    setSettings: (newSettings) => set(state => {
-        const updatedSettings = { ...state.settings, ...newSettings }
+    setSettings: (newSettings) => {
+        set(state => {
+            const updatedSettings = { ...state.settings, ...newSettings }
+            return { settings: updatedSettings } // Simplified setSettings
+        })
 
-        // If amountRanges changed, we must refresh ALL existing cards
-        // to match the new images/ranges.
-        if (newSettings.amountRanges) {
-            const updatedCards = { ...state.cards }
-            let hasChanges = false
-
-            Object.values(updatedCards).forEach(card => {
-                // Re-calculate image URL and Color based on NEW settings
-                let newImageUrl = 'default'
-                let newTextColor = '#2563eb'
-
-                for (const range of updatedSettings.amountRanges) {
-                    if (card.amount >= range.min && card.amount <= range.max) {
-                        newImageUrl = range.imageUrl
-                        newTextColor = range.textColor || '#2563eb'
-                        break
-                    }
-                }
-
-                if (card.imageUrl !== newImageUrl || card.textColor !== newTextColor) {
-                    updatedCards[card.id] = { ...card, imageUrl: newImageUrl, textColor: newTextColor }
-                    hasChanges = true
-                }
-            })
-
-            if (hasChanges) {
-                return { settings: updatedSettings, cards: updatedCards }
-            }
+        // Side Effect: Trigger Refresh if Signature Config changed
+        // We no longer check amountRanges
+        const { refreshCardImages } = get()
+        if (newSettings.streamerId || newSettings.signatureBalloons) {
+            refreshCardImages()
         }
+    },
 
-        return { settings: updatedSettings }
-    }),
+    refreshCardImages: async () => {
+        const { cards, settings } = get()
+        const sigConfig = {
+            streamerId: settings.streamerId,
+            signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : []
+        };
+
+        const updates: Record<string, Partial<CardData>> = {}
+        const promises = Object.values(cards).map(async (card) => {
+            let targetImageUrl = 'default'
+
+            // Check STANDARD_RANGES
+            for (const range of STANDARD_RANGES) {
+                if (card.amount >= range.min && card.amount <= range.max) {
+                    targetImageUrl = range.imageUrl
+                    break
+                }
+            }
+
+            // Signature Logic
+            // If it matches signature, we regenerate.
+            // If it matches standard ranges (default/bronze/...), we regenerate (to get updated visuals/fetch)
+            // Wait, if it's standard, we ALWAYS regenerate now because we rely on Generator for ALL of them except maybe pure local?
+            // Actually, we probably want to regenerate to ensure we get the fetched image if available.
+
+            const isSignature = sigConfig.streamerId && sigConfig.signatureBalloons.includes(card.amount);
+            const isPreset = ['default', 'bronze', 'silver', 'gold'].includes(targetImageUrl)
+
+            if (isPreset || isSignature) {
+                try {
+                    const genUrl = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig)
+                    updates[card.id] = { imageUrl: genUrl }
+                } catch (e) {
+                    console.error(`Failed to refresh card ${card.id}`, e)
+                    updates[card.id] = { imageUrl: targetImageUrl }
+                }
+            }
+        })
+
+        await Promise.all(promises)
+
+        if (Object.keys(updates).length > 0) {
+            set(state => {
+                const newCards = { ...state.cards }
+                Object.entries(updates).forEach(([id, update]) => {
+                    if (newCards[id]) {
+                        newCards[id] = { ...newCards[id], ...update }
+                    }
+                })
+                return { cards: newCards }
+            })
+        }
+    },
+
     initSettings: (settings) => set({ settings })
 }))

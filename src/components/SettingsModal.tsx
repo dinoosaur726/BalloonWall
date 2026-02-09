@@ -85,11 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
 
 
-    const handleRangeChange = (index: number, field: string, value: string | number) => {
-        const newRanges = [...localSettings.amountRanges]
-        newRanges[index] = { ...newRanges[index], [field]: value }
-        setLocalSettings({ ...localSettings, amountRanges: newRanges })
-    }
+
 
     // Translation Map for Tabs
     const tabNames: Record<string, string> = {
@@ -143,20 +139,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             </div>
 
                             {/* General Settings */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">일반 설정</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-white/70 mb-1.5">웹소켓 포트</label>
-                                        <input
-                                            type="number"
-                                            value={localSettings.wsPort}
-                                            onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                        />
-                                    </div>
-
-                                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                            <div className="space-y-6">
+                                {/* Display Settings Group */}
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">화면 설정</h3>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
                                             <span className="text-sm font-medium text-white/90">투명 배경</span>
                                             <button
@@ -186,101 +173,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Range Settings */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">규칙 및 색상 관리</h3>
-                                <div className="space-y-3">
-                                    {localSettings.amountRanges.map((range, idx) => (
-                                        <div key={idx} className="group flex gap-2 items-center bg-white/5 p-2 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-white/40">최소</span>
-                                                    <input
-                                                        type="number"
-                                                        value={range.min}
-                                                        onChange={(e) => handleRangeChange(idx, 'min', parseInt(e.target.value))}
-                                                        className="w-20 bg-black/20 border border-white/10 rounded-md p-1.5 text-sm text-center focus:outline-none focus:border-blue-500/50"
-                                                    />
-                                                </div>
+                                {/* Network & Signature Settings */}
+                                <div className="space-y-3 pt-4 border-t border-white/10">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">연동 설정</h3>
+
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-white/70 mb-1.5">웹소켓 포트</label>
+                                            <input
+                                                type="number"
+                                                value={localSettings.wsPort}
+                                                onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                                            <div className="col-span-2">
+                                                <h4 className="text-xs font-semibold text-blue-400 mb-2">시그니처 풍선 (SOOP/AfreecaTV)</h4>
                                             </div>
-                                            <div className="h-8 w-px bg-white/10 mx-1" />
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs text-white/40">최대</span>
+                                            <div>
+                                                <label className="block text-xs font-medium text-white/60 mb-1.5">BJ 아이디</label>
                                                 <input
-                                                    type="number"
-                                                    value={range.max}
-                                                    onChange={(e) => handleRangeChange(idx, 'max', parseInt(e.target.value))}
-                                                    className="w-24 bg-black/20 border border-white/10 rounded-md p-1.5 text-sm text-center focus:outline-none focus:border-blue-500/50"
+                                                    type="text"
+                                                    placeholder="sooplive ID"
+                                                    value={localSettings.streamerId || ''}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, streamerId: e.target.value })}
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
                                                 />
                                             </div>
-                                            <div className="flex-1 ml-2">
-                                                <div className="flex w-full items-center gap-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="이미지 URL 또는 'gold'..."
-                                                        value={range.imageUrl}
-                                                        onChange={(e) => handleRangeChange(idx, 'imageUrl', e.target.value)}
-                                                        className="flex-1 bg-transparent border-b border-white/10 py-1.5 text-sm text-white/90 focus:outline-none focus:border-blue-500 transition-colors placeholder:text-white/20"
-                                                    />
-                                                    <button
-                                                        onClick={async () => {
-                                                            const path = await window.ipcRenderer.invoke('select-image');
-                                                            if (path) handleRangeChange(idx, 'imageUrl', path);
-                                                        }}
-                                                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-md text-white/50 hover:text-white transition-colors"
-                                                        title="이미지 선택"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" /></svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Color Picker */}
-                                            <div className="flex flex-col gap-1 items-center px-2">
-                                                <span className="text-xs text-white/40">색상</span>
+                                            <div>
+                                                <label className="block text-xs font-medium text-white/60 mb-1.5">시그니처 개수 (공백 구분)</label>
                                                 <input
-                                                    type="color"
-                                                    value={range.textColor || '#2563eb'}
-                                                    onChange={(e) => handleRangeChange(idx, 'textColor', e.target.value)}
-                                                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0"
-                                                    title="글자 색상"
+                                                    type="text"
+                                                    placeholder="예: 100 282 486"
+                                                    value={localSettings.signatureBalloons || ''}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, signatureBalloons: e.target.value })}
+                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
                                                 />
                                             </div>
-                                            <div className={`w-8 h-8 rounded-full border border-white/20 shadow-inner ${range.imageUrl === 'gold' ? 'bg-yellow-500' :
-                                                range.imageUrl === 'silver' ? 'bg-gray-400' :
-                                                    range.imageUrl === 'bronze' ? 'bg-orange-700' :
-                                                        range.imageUrl === 'default' ? 'bg-blue-500' : 'bg-white/10'
-                                                }`}>
-                                                {!['gold', 'silver', 'bronze', 'default'].includes(range.imageUrl) && (
-                                                    <img src={range.imageUrl} className="w-full h-full object-cover rounded-full opacity-70" />
-                                                )}
+                                            <div className="col-span-2 text-[11px] text-white/30 leading-relaxed">
+                                                * BJ 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
+                                                자동으로 방송국의 시그니처 이미지를 불러옵니다.
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                            {/* Delete Button */}
+
+                                {/* Automation Settings */}
+                                <div className="space-y-3 pt-4 border-t border-white/10">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자동화 설정</h3>
+
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="text-sm font-medium text-white/90">자동 카드 생성</div>
+                                                <div className="text-xs text-white/50 mt-0.5">
+                                                    {localSettings.autoAdd ? '후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
+                                                </div>
+                                            </div>
                                             <button
-                                                onClick={() => {
-                                                    const newRanges = localSettings.amountRanges.filter((_, i) => i !== idx)
-                                                    setLocalSettings({ ...localSettings, amountRanges: newRanges })
-                                                }}
-                                                className="p-1.5 ml-2 text-white/20 hover:text-red-400 hover:bg-white/5 rounded-full transition-colors"
-                                                title="Remove Range"
+                                                onClick={() => setLocalSettings({ ...localSettings, autoAdd: !localSettings.autoAdd })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAdd ? 'bg-blue-500' : 'bg-gray-600'}`}
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAdd ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
-                                    ))}
+
+                                        {localSettings.autoAdd && (
+                                            <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <label className="block text-xs font-medium text-white/70 mb-1.5">
+                                                    최소 금액 설정 (OO개 이상만 제작)
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="number"
+                                                        value={localSettings.minAmount}
+                                                        onChange={(e) => setLocalSettings({ ...localSettings, minAmount: parseInt(e.target.value) || 0 })}
+                                                        className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                    />
+                                                    <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <button
-                                    className="w-full py-2.5 border border-dashed border-white/20 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2"
-                                    onClick={() => setLocalSettings({
-                                        ...localSettings,
-                                        amountRanges: [...localSettings.amountRanges, { min: 0, max: 0, imageUrl: 'default', textColor: '#2563eb' }]
-                                    })}
-                                >
-                                    <span>+</span> 범위 추가 (테마)
-                                </button>
                             </div>
                         </div>
                     )}
@@ -398,25 +377,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     )}
                 </div>
 
-                {/* Footer (Cancel/Save) - Only for Settings Tab? Or global? */}
-                {/* Save Changes mainly applies to "settings" tab changes. History/Saves are instant. */}
-                {activeTab === 'settings' && (
-                    <div className="flex justify-end gap-3 p-6 border-t border-white/10 bg-[#1e1e1e] rounded-b-2xl shrink-0">
-                        <button
-                            onClick={onClose}
-                            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSaveSettings}
-                            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
-                        >
-                            Save Changes
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
+                {/* Footer (Cancel/Save) */}
+                {
+                    activeTab === 'settings' && (
+                        <div className="flex justify-end gap-3 p-6 border-t border-white/10 bg-[#1e1e1e] rounded-b-2xl shrink-0">
+                            <button
+                                onClick={onClose}
+                                className="px-5 py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleSaveSettings}
+                                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+                            >
+                                설정 저장
+                            </button>
+                        </div>
+                    )
+                }
+            </div >
+        </div >
     )
 }

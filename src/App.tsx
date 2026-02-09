@@ -26,7 +26,7 @@ declare module 'react' {
 // Global window type is handled by electron-env.d.ts
 
 function App() {
-  const { stacks, cards, addCard, moveCardsToStack, moveCardsToCanvas, settings, initSettings, updateStackScale } = useStore()
+  const { stacks, cards, handleDonation, moveCardsToStack, moveCardsToCanvas, settings, initSettings, updateStackScale } = useStore()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [dragStartPos, setDragStartPos] = useState<{ x: number, y: number } | null>(null)
@@ -64,7 +64,8 @@ function App() {
     }).catch(err => console.error(err))
 
     const handleNewDonation = (_event: any, data: { nickname: string, amount: number }) => {
-      addCard(data.nickname, data.amount)
+      window.ipcRenderer.send('log', `[App] Received donation: ${data.nickname}/${data.amount}`);
+      handleDonation(data.nickname, data.amount)
     }
 
     // Defensive: Remove any existing listeners first

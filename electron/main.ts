@@ -20,25 +20,32 @@ export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+console.log('[Main] VITE_PUBLIC:', process.env.VITE_PUBLIC)
 
 let win: any | null
 let wss: WebSocketServer | null
 
 interface Settings {
   wsPort: number
-  amountRanges: { min: number; max: number; imageUrl: string }[]
   isTransparent?: boolean
+  hideUI?: boolean
+  isGreenScreen?: boolean
+  streamerId?: string
+  signatureBalloons?: string
+  autoAdd?: boolean
+  minAmount?: number
 }
 
 const store = new Store<Settings>({
   defaults: {
     wsPort: 3005,
-    amountRanges: [
-      { min: 0, max: 99, imageUrl: 'default' },
-      { min: 100, max: 999, imageUrl: 'bronze' },
-      { min: 1000, max: 9999, imageUrl: 'silver' },
-      { min: 10000, max: 999999, imageUrl: 'gold' }
-    ]
+    isTransparent: false,
+    hideUI: false,
+    isGreenScreen: false,
+    streamerId: '',
+    signatureBalloons: '',
+    autoAdd: true,
+    minAmount: 0
   }
 })
 
@@ -108,6 +115,7 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
+    win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
@@ -176,6 +184,10 @@ ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => 
     startWebSocketServer(newSettings.wsPort)
   }
   return store.store
+})
+
+ipcMain.on('log', (_event: any, message: any) => {
+  console.log('[Renderer]', message)
 })
 
 app.on('window-all-closed', () => {
