@@ -171,6 +171,21 @@ ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl:
   }
 })
 
+ipcMain.handle('fetch-image', async (_event: any, url: string) => {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64 = buffer.toString('base64')
+    const mimeType = response.headers.get('content-type') || 'image/png'
+    return `data:${mimeType};base64,${base64}`
+  } catch (error) {
+    console.error('[Main] Fetch image failed:', error)
+    return null
+  }
+})
+
 ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => {
   // electron-store set(object) requires full object or matching. Partial causes issue.
   // Iterating to set individual keys is safer for Partial updates.

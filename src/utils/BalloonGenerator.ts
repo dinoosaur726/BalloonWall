@@ -14,7 +14,7 @@ export class BalloonGenerator {
         if (this.fontLoaded) return;
         try {
             this.log('Loading font...');
-            const font = new FontFace(this.fontName, 'url(/assets/NanumGothicExtraBold.ttf)');
+            const font = new FontFace(this.fontName, 'url(assets/NanumGothicExtraBold.ttf)');
             await font.load();
             document.fonts.add(font);
             this.fontLoaded = true;
@@ -25,25 +25,45 @@ export class BalloonGenerator {
     }
 
     private static getBalloonImage(amount: number): string {
-        if (amount >= 1 && amount <= 99) return '/assets/ba_step2.png';
-        if (amount >= 100 && amount <= 300) return '/assets/ba_step3.png';
-        if (amount >= 301 && amount <= 999) return '/assets/ba_step4.png';
-        if (amount >= 1000 && amount <= 4999) return '/assets/ba_step5.png';
-        if (amount >= 5000) return '/assets/ba_step6.png';
-        return '/assets/ba_step2.png';
+        if (amount >= 1 && amount <= 99) return 'assets/ba_step2.png';
+        if (amount >= 100 && amount <= 300) return 'assets/ba_step3.png';
+        if (amount >= 301 && amount <= 999) return 'assets/ba_step4.png';
+        if (amount >= 1000 && amount <= 4999) return 'assets/ba_step5.png';
+        if (amount >= 5000) return 'assets/ba_step6.png';
+        return 'assets/ba_step2.png';
     }
 
     private static loadImage(src: string): Promise<HTMLImageElement> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             console.log(`[BalloonGenerator] Loading image: ${src}`);
+
+            let finalSrc = src;
+
+            // Use IPC for external URLs to bypass CORS/CSP
+            if (src.startsWith('http') && window.ipcRenderer) {
+                try {
+                    const dataUrl = await window.ipcRenderer.invoke('fetch-image', src);
+                    if (dataUrl) {
+                        finalSrc = dataUrl;
+                    } else {
+                        throw new Error('IPC fetch returned null');
+                    }
+                } catch (e) {
+                    console.error(`[BalloonGenerator] IPC fetch failed for ${src}, falling back to direct load.`, e);
+                }
+            }
+
             const img = new Image();
-            img.crossOrigin = 'Anonymous'; // Allow loading from external URLs for Canvas
+            // Only use crossOrigin if it is NOT a data URL and is external
+            if (!finalSrc.startsWith('data:') && finalSrc.startsWith('http')) {
+                img.crossOrigin = 'Anonymous';
+            }
 
             const timeout = setTimeout(() => {
                 img.onload = null;
                 img.onerror = null;
                 reject(new Error(`Timeout loading image ${src}`));
-            }, 5000); // 5s timeout
+            }, 10000); // Increased timeout
 
             img.onload = () => {
                 clearTimeout(timeout);
@@ -54,7 +74,7 @@ export class BalloonGenerator {
                 clearTimeout(timeout);
                 reject(new Error(`Failed to load image ${src}: ${JSON.stringify(e)}`));
             };
-            img.src = src;
+            img.src = finalSrc;
         });
     }
 
@@ -82,7 +102,7 @@ export class BalloonGenerator {
             }
         }
 
-        const bgSrc = '/assets/n_b.png';
+        const bgSrc = 'assets/n_b.png';
 
         try {
             let balloonImg: HTMLImageElement;
