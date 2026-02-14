@@ -23,7 +23,7 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: inherit;
+  background-color: transparent !important;
 }
 
 #root {

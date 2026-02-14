@@ -79,12 +79,15 @@ function startWebSocketServer(port: number) {
 }
 
 function createWindow() {
-  const width = 1280
-  const height = 720
+  const width = 1920
+  const height = 1080
 
   win = new BrowserWindow({
     width,
     height,
+    useContentSize: true, // Ensure viewport is exactly 1920x1080
+    resizable: false,     // Disable resizing by user
+    fullscreenable: false, // Prevent maximizing
     x: 0,
     y: 0,
     frame: false, // Frameless for clean OBS capture

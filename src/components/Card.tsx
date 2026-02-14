@@ -3,6 +3,11 @@ import { useDraggable } from '@dnd-kit/core'
 import { motion } from 'framer-motion'
 import { twMerge } from 'tailwind-merge'
 import { useStore } from '../store'
+import {
+    CARD_WIDTH_REM,
+    BASE_HEIGHT_REM,
+    IMG_HEIGHT_REM
+} from '../constants'
 
 interface CardProps {
     id: string
@@ -15,69 +20,89 @@ interface CardProps {
     childCards?: React.ReactNode // For overlay grouping
     scale?: number
     onScale?: (delta: number) => void
+    hideImage?: boolean
 }
 
-export const Card: React.FC<CardProps> = ({ id, nickname, amount, imageUrl, textColor = '#2563eb', index, isOverlay, childCards, scale = 1 }) => {
+export const Card: React.FC<CardProps> = ({
+    id,
+    nickname,
+    amount,
+    imageUrl,
+    index,
+    isOverlay,
+    childCards,
+    scale = 1,
+    hideImage = false
+}) => {
+    const { settings } = useStore()
+    const { design } = settings
+
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id,
         data: { index, type: 'CARD' },
         disabled: isOverlay
     })
 
-    // Physical scaling logic to affect layout flow
-    const baseWidthRem = 14.4 // 1.8 * 8rem
-    const currentWidthRem = baseWidthRem * scale
+    const currentWidthRem = CARD_WIDTH_REM * scale
 
-    const style = {
-        // marginBottom is handled by parent wrapper in App.tsx now
-        width: `${currentWidthRem}rem`,
-        height: `${10.5 * scale}rem`, // Adjusted height (8rem img + 2.5rem text)
-        fontSize: `${0.875 * scale}rem`,
-    }
+    // Adjust font sizes based on scale - Increased as requested
+    const nicknameSize = `${0.9 * scale}rem` // Match amount size
+    const amountSize = `${0.9 * scale}rem`   // Smaller
 
     return (
         <motion.div
             ref={setNodeRef}
-            // Removing layoutId and initial opacity to prevent disappearing bugs on move
-            // initial={{ opacity: 0 }}
-            // animate={{ opacity: 1 }}
-            // exit={{ opacity: 0 }}
-            // layoutId={id}
             className={twMerge(
-                "relative flex flex-col items-center p-0 rounded-xl shadow-md select-none cursor-grab active:cursor-grabbing bg-white border border-gray-200 overflow-hidden group",
+                "relative flex flex-col items-center p-0 rounded-xl select-none cursor-grab active:cursor-grabbing overflow-hidden group",
+                // Removed border and white background from container
                 isDragging ? "opacity-30" : "opacity-100",
-                isOverlay && "opacity-100 cursor-grabbing shadow-2xl scale-105 z-50 ring-2 ring-blue-500"
+                // Removed scale-105 to prevent position jump on drop
+                isOverlay && "opacity-100 cursor-grabbing shadow-2xl z-50",
             )}
-            style={style}
+            style={{
+                width: `${currentWidthRem}rem`,
+                height: `${BASE_HEIGHT_REM * scale}rem`,
+            }}
             {...attributes}
             {...listeners}
         >
-            {/* Standard Reference Design: Image Top, Text Bottom */}
-            {/* Image height should probably scale too. w-full h-24 (6rem). 
-                If width scales, h-24 stays 6rem. Aspect ratio might change.
-                Better to use aspect ratio or scaled height.
-            */}
+            {/* Image Area */}
             <div
-                className="w-full bg-gray-100 relative"
-                style={{ height: `${8 * scale}rem` }} // 14.4 / 1.8 = 8rem height for 1.8:1 ratio
+                className={twMerge(
+                    "w-full relative transition-opacity duration-300",
+                    hideImage ? "opacity-0" : "opacity-100"
+                )}
+                style={{ height: `${IMG_HEIGHT_REM * scale}rem` }}
             >
-                {imageUrl === 'gold' && <div className="w-full h-full bg-yellow-400" />}
-                {imageUrl === 'silver' && <div className="w-full h-full bg-gray-400" />}
-                {imageUrl === 'bronze' && <div className="w-full h-full bg-orange-700" />}
-                {imageUrl === 'default' && <div className="w-full h-full bg-blue-500" />}
+                {!hideImage && (
+                    <>
+                        {imageUrl === 'gold' && <div className="w-full h-full bg-yellow-400" />}
+                        {imageUrl === 'silver' && <div className="w-full h-full bg-gray-400" />}
+                        {imageUrl === 'bronze' && <div className="w-full h-full bg-orange-700" />}
+                        {imageUrl === 'default' && <div className="w-full h-full bg-blue-500" />}
 
-                {!['gold', 'silver', 'bronze', 'default'].includes(imageUrl) && (
-                    <img src={imageUrl} alt="bg" className="w-full h-full object-cover" />
+                        {!['gold', 'silver', 'bronze', 'default'].includes(imageUrl) && (
+                            <img src={imageUrl} alt="bg" className="w-full h-full object-cover drop-shadow-md" />
+                        )}
+                    </>
                 )}
             </div>
 
-            <div className="w-full bg-white p-[0.3em] flex flex-col items-center justify-center flex-1 relative group/text">
+            {/* Text Area */}
+            <div
+                className={twMerge(
+                    "w-full flex flex-col items-center justify-center flex-1 relative z-10 bg-white",
+                    // Explicit bg-white
+                )}
+                style={{
+                    height: `${BASE_HEIGHT_REM * scale}rem`
+                }}
+            >
+                {/* Delete Button (Hover) */}
                 <button
-                    className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-gray-200 text-gray-500 hover:bg-red-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-50 cursor-pointer"
+                    className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-gray-200 text-gray-500 hover:bg-red-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
                     style={{ fontSize: '0.7em' }}
-                    onPointerDown={(e) => {
-                        e.stopPropagation() // Prevent Drag Start
-                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                         e.stopPropagation()
                         useStore.getState().removeCard(id)
@@ -85,10 +110,34 @@ export const Card: React.FC<CardProps> = ({ id, nickname, amount, imageUrl, text
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                 </button>
-                <span className="font-bold text-gray-900 leading-tight text-center line-clamp-1 translate-y-[2px]" style={{ fontSize: '0.95em' }}>{nickname}</span>
-                <span className="font-bold mt-[0.1em] translate-y-[2px]" style={{ fontSize: '0.85em', color: textColor }}>
-                    {amount.toLocaleString()}
-                </span>
+
+                {design.showNickname && (
+                    <div
+                        className="truncate w-[90%] text-center text-[#ff0808]"
+                        style={{
+                            fontSize: nicknameSize,
+                            lineHeight: '1.2',
+                            fontFamily: '"Nanum Gothic", sans-serif',
+                            fontWeight: 800
+                        }}
+                    >
+                        {nickname}
+                    </div>
+                )}
+
+                {design.showAmount && (
+                    <div
+                        className="truncate w-[90%] text-center text-black"
+                        style={{
+                            fontSize: amountSize,
+                            lineHeight: '1.2',
+                            fontFamily: '"Nanum Gothic", sans-serif',
+                            fontWeight: 800
+                        }}
+                    >
+                        별풍선 {amount.toLocaleString()}개
+                    </div>
+                )}
             </div>
 
             {childCards}

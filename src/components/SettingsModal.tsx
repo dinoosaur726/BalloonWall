@@ -8,15 +8,21 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const store = useStore() // Get full store for actions
     const { settings, history, setSettings, addCard, loadState } = store
-    const [localSettings, setLocalSettings] = useState(settings)
-    const [activeTab, setActiveTab] = useState<'settings' | 'history' | 'saves'>('settings')
+    const [localSettings, setLocalSettings] = useState(() => ({
+        ...settings,
+        design: settings.design || { showNickname: true, showAmount: true, enableBlur: true }
+    }))
+    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves'>('settings')
 
     // Saves Management
     const [saveName, setSaveName] = useState('')
     const [savedInstances, setSavedInstances] = useState<string[]>([])
 
     useEffect(() => {
-        setLocalSettings(settings)
+        setLocalSettings(prev => ({
+            ...settings,
+            design: settings.design || prev.design || { showNickname: true, showAmount: true, enableBlur: true }
+        }))
         updateSavedInstances()
     }, [settings])
 
@@ -90,6 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     // Translation Map for Tabs
     const tabNames: Record<string, string> = {
         settings: '설정',
+        design: '디자인',
         history: '기록',
         saves: '저장'
     }
@@ -107,7 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
 
                     <div className="flex gap-6">
-                        {['settings', 'history', 'saves'].map((tab) => (
+                        {['settings', 'design', 'history', 'saves'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -264,6 +271,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         </div>
                     )}
 
+                    {activeTab === 'design' && (
+                        <div className="space-y-8">
+                            {/* Design Settings */}
+                            <div className="space-y-6">
+                                {/* Text Visibility */}
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">텍스트 표시</h3>
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium text-white/90">닉네임 표시</span>
+                                            <button
+                                                onClick={() => setLocalSettings({
+                                                    ...localSettings,
+                                                    design: { ...localSettings.design, showNickname: !localSettings.design.showNickname }
+                                                })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.showNickname ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.showNickname ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                            <span className="text-sm font-medium text-white/90">개수 표시</span>
+                                            <button
+                                                onClick={() => setLocalSettings({
+                                                    ...localSettings,
+                                                    design: { ...localSettings.design, showAmount: !localSettings.design.showAmount }
+                                                })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.showAmount ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.showAmount ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Effects */}
+                                <div className="space-y-3 pt-4 border-t border-white/10">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">효과</h3>
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="text-sm font-medium text-white/90">드래그 블러 효과</div>
+                                                <div className="text-xs text-white/50 mt-0.5">카드를 잡고 이동할 때 배경이 흐려집니다.</div>
+                                            </div>
+                                            <button
+                                                onClick={() => setLocalSettings({
+                                                    ...localSettings,
+                                                    design: { ...localSettings.design, enableBlur: !localSettings.design.enableBlur }
+                                                })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.enableBlur ? 'bg-purple-500' : 'bg-gray-600'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.enableBlur ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'history' && (
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider mb-2">후원 기록</h3>
@@ -379,7 +446,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                 {/* Footer (Cancel/Save) */}
                 {
-                    activeTab === 'settings' && (
+                    (activeTab === 'settings' || activeTab === 'design') && (
                         <div className="flex justify-end gap-3 p-6 border-t border-white/10 bg-[#1e1e1e] rounded-b-2xl shrink-0">
                             <button
                                 onClick={onClose}

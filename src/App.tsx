@@ -15,6 +15,14 @@ import { useStore } from './store'
 import { Stack } from './components/Stack'
 import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
+import {
+  REM,
+  STEP_REM,
+  CARD_WIDTH_REM,
+  BASE_HEIGHT_REM,
+  SNAP_DIST_PX,
+  IMG_HEIGHT_REM
+} from './constants'
 
 // Augment React CSSProperties for Electron Drag Regions
 declare module 'react' {
@@ -27,6 +35,12 @@ declare module 'react' {
 
 function App() {
   const { stacks, cards, handleDonation, moveCardsToStack, moveCardsToCanvas, settings, initSettings, updateStackScale } = useStore()
+
+  // Debug Logging
+  useEffect(() => {
+    window.ipcRenderer.send('log', `[App] isTransparent: ${settings.isTransparent}, isGreenScreen: ${settings.isGreenScreen}`)
+  }, [settings.isTransparent, settings.isGreenScreen])
+
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [dragStartPos, setDragStartPos] = useState<{ x: number, y: number } | null>(null)
@@ -136,28 +150,25 @@ function App() {
     if (dragStartPos) {
       const newX = dragStartPos.x + delta.x
       const newY = dragStartPos.y + delta.y
-      const REM = 16
 
-      // Snapping Logic
-      const SNAP_DIST = 20
       const WINDOW_W = window.innerWidth
       const WINDOW_H = window.innerHeight
 
       const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(active.id as string))
       const currentScale = sourceStackEntry ? sourceStackEntry.scale : 1
 
-      const cardWidth = 14.4 * REM * currentScale
+      const cardWidth = CARD_WIDTH_REM * REM * currentScale
       const cardCount = draggedGroup.length
-      const totalHeight = ((cardCount - 1) * 2.5 + 10.5) * REM * currentScale
+      const totalHeight = ((cardCount - 1) * STEP_REM + BASE_HEIGHT_REM) * REM * currentScale
 
       let finalX = newX
       let finalY = newY
 
       // --- Window Edge Snapping ---
-      if (finalX < SNAP_DIST) finalX = 0
-      if (finalY < SNAP_DIST) finalY = 0
-      if (finalX + cardWidth > WINDOW_W - SNAP_DIST) finalX = WINDOW_W - cardWidth
-      if (finalY + totalHeight > WINDOW_H - SNAP_DIST) finalY = WINDOW_H - totalHeight
+      if (finalX < SNAP_DIST_PX) finalX = 0
+      if (finalY < SNAP_DIST_PX) finalY = 0
+      if (finalX + cardWidth > WINDOW_W - SNAP_DIST_PX) finalX = WINDOW_W - cardWidth
+      if (finalY + totalHeight > WINDOW_H - SNAP_DIST_PX) finalY = WINDOW_H - totalHeight
 
       // --- Stack-to-Stack Side Snapping ---
       for (const stack of Object.values(stacks)) {
@@ -167,18 +178,18 @@ function App() {
         }
 
         const otherScale = stack.scale
-        const otherW = 14.4 * REM * otherScale
+        const otherW = CARD_WIDTH_REM * REM * otherScale
 
         // Snap to Right Side of Other
-        if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST) {
+        if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST_PX) {
           finalX = stack.x + otherW + 1
-          if (Math.abs(finalY - stack.y) < SNAP_DIST) finalY = stack.y
+          if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
         }
 
         // Snap to Left Side of Other
-        if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST) {
+        if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST_PX) {
           finalX = stack.x - cardWidth - 1
-          if (Math.abs(finalY - stack.y) < SNAP_DIST) finalY = stack.y
+          if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
         }
       }
 
@@ -218,7 +229,7 @@ function App() {
       <div
         ref={setCanvasRef}
         className={`relative w-full h-full pointer-events-auto transition-colors duration-300 overflow-hidden ${settings.isGreenScreen ? 'bg-[#00b140]' :
-          (settings.isTransparent && (activeId || isInteracting)) ? 'bg-black/60' :
+          (settings.isTransparent && settings.design.enableBlur && (activeId || isInteracting)) ? 'bg-black/60' :
             settings.isTransparent ? 'bg-transparent' : 'bg-[#222]'
           }`}
       >
@@ -239,11 +250,14 @@ function App() {
                 if (!cardData) return null
 
                 // Overlap matches previous logic
-                // Height 10.5rem - Step 2.5rem = 8rem overlap
-                const dynamicMargin = index > 0 ? `-${8 * scale}rem` : '0'
+                // Height is BASE_HEIGHT_REM (e.g. 10.75) - STEP_REM (2.75) = IMG_HEIGHT_REM (8)
+                const dynamicMargin = index > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
 
                 // Reversed Z-Index so top cards cover bottom cards (showing text at bottom of top card)
                 const zIndex = 50 - index
+
+                // Hide images for cards behind the top one (index > 0)
+                const shouldHideImage = index > 0
 
                 return (
                   <div
@@ -258,6 +272,7 @@ function App() {
                       {...cardData}
                       index={index}
                       scale={scale}
+                      hideImage={shouldHideImage}
                     />
                   </div>
                 )
@@ -273,7 +288,7 @@ function App() {
             className="flex flex-col items-center pb-4 border-2 border-transparent"
             style={{
               // Offset calculation to align Clicked Card with Cursor
-              marginTop: `-${(draggedGroupCards.length - 1) * 2.5 * (Object.values(stacks).find(s => s.cardIds.includes(activeId))?.scale || 1)}rem`
+              marginTop: `-${(draggedGroupCards.length - 1) * STEP_REM * (Object.values(stacks).find(s => s.cardIds.includes(activeId))?.scale || 1)}rem`
             }}
           >
             {draggedGroupCards.map((cardId, i) => {
@@ -283,7 +298,7 @@ function App() {
               const sourceStack = Object.values(stacks).find(s => s.cardIds.includes(activeId))
               const scale = sourceStack ? sourceStack.scale : 1
 
-              const dynamicMargin = i > 0 ? `-${8 * scale}rem` : '0'
+              const dynamicMargin = i > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
 
               return (
                 <div
@@ -298,6 +313,7 @@ function App() {
                     index={i}
                     scale={scale}
                     isOverlay
+                    hideImage={i > 0}
                   />
                 </div>
               )

@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import { BalloonGenerator } from './utils/BalloonGenerator'
+import {
+    REM,
+    STEP_REM,
+    CARD_WIDTH_REM,
+    BASE_HEIGHT_REM
+} from './constants'
 
 interface CardData {
     id: string
@@ -37,6 +43,12 @@ interface Settings {
     // New Automation Settings
     autoAdd: boolean
     minAmount: number
+    // Design Settings
+    design: {
+        showNickname: boolean
+        showAmount: boolean
+        enableBlur: boolean
+    }
 }
 
 // ... (Stack update helpers remain same) ...
@@ -47,8 +59,6 @@ const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null
 
     if (newCardIds.length === 0) return null
 
-    const STEP_REM = 2.5
-    const REM = 16
     const shiftDown = removedCardIds.length * STEP_REM * REM * stack.scale
 
     return {
@@ -104,7 +114,12 @@ export const useStore = create<GameState>((set, get) => ({
         streamerId: '',
         signatureBalloons: '',
         autoAdd: true,
-        minAmount: 0
+        minAmount: 0,
+        design: {
+            showNickname: true,
+            showAmount: true,
+            enableBlur: true
+        }
     },
 
     handleDonation: (nickname, amount) => {
@@ -171,14 +186,23 @@ export const useStore = create<GameState>((set, get) => ({
             textColor
         }
 
+        // Auto-Stacking Logic: Find stack with matching amount
         const stackValues = Object.values(get().stacks)
-        const targetStack = stackValues.length > 0
-            ? stackValues.reduce((prev, current) => (prev.cardIds.length > current.cardIds.length) ? prev : current)
-            : null
+        let targetStack: Stack | null = null
+
+        // Find a stack that has cards of the same amount
+        for (const stack of stackValues) {
+            if (stack.cardIds.length > 0) {
+                const firstCardId = stack.cardIds[0]
+                const firstCard = get().cards[firstCardId]
+                if (firstCard && firstCard.amount === amount) {
+                    targetStack = stack
+                    break
+                }
+            }
+        }
 
         if (targetStack) {
-            const STEP_REM = 2.5
-            const REM = 16
             const shiftUp = STEP_REM * REM * targetStack.scale
 
             const updatedStack = {
@@ -187,14 +211,14 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
-            // REMOVED: History addition logic here.
-            // History is now separate.
-
             set(state => ({
                 cards: { ...state.cards, [newCard.id]: newCard },
                 stacks: { ...state.stacks, [targetStack.id]: updatedStack },
             }))
         } else {
+            // No matching stack found -> Create New Stack
+            // Position it randomly or use a smart placement (AutoOrganize logic is separate)
+            // For now, random placement to avoid overlap
             const x = 50 + Math.random() * 200
             const y = 50 + Math.random() * 200
 
@@ -206,8 +230,6 @@ export const useStore = create<GameState>((set, get) => ({
                 y,
                 scale: 0.85
             }
-
-            // REMOVED: History addition logic here.
 
             set(state => ({
                 cards: { ...state.cards, [newCard.id]: newCard },
@@ -258,8 +280,6 @@ export const useStore = create<GameState>((set, get) => ({
                 newStacks[sourceStackId] = sourceResult
             }
             const addCount = cardIds.length
-            const STEP_REM = 2.5
-            const REM = 16
             const shiftUp = addCount * STEP_REM * REM * targetStack.scale
 
             newStacks[targetStackId] = {
@@ -331,17 +351,16 @@ export const useStore = create<GameState>((set, get) => ({
                 cardsToMove.push(...s.cardIds)
                 delete stacks[s.id]
             })
-            const REM = 16
-            const CARD_WIDTH_PX = 14.4 * REM
-            const ESTIMATED_HEIGHT_PX = (cardsToMove.length * 2.5 * REM) + (10.5 * REM)
+            const cardWidthPx = CARD_WIDTH_REM * REM
+            const estimatedHeightPx = (cardsToMove.length * STEP_REM * REM) + (BASE_HEIGHT_REM * REM)
             const SPACING = 20
             let safeX = 50
             let safeY = 50
             let found = false
             const isOverlapping = (x: number, y: number, w: number, h: number) => {
                 return Object.values(stacks).some(s => {
-                    const sW = 14.4 * REM * s.scale
-                    const sH = ((s.cardIds.length - 1) * 2.5 + 10.5) * REM * s.scale
+                    const sW = CARD_WIDTH_REM * REM * s.scale
+                    const sH = ((s.cardIds.length - 1) * STEP_REM + BASE_HEIGHT_REM) * REM * s.scale
                     return !(
                         x + w < s.x ||
                         x > s.x + sW ||
@@ -352,11 +371,11 @@ export const useStore = create<GameState>((set, get) => ({
             }
             let attempt = 0
             while (attempt < 100) {
-                if (!isOverlapping(safeX, safeY, CARD_WIDTH_PX, ESTIMATED_HEIGHT_PX)) {
+                if (!isOverlapping(safeX, safeY, cardWidthPx, estimatedHeightPx)) {
                     found = true
                     break
                 }
-                safeX += (CARD_WIDTH_PX + SPACING)
+                safeX += (cardWidthPx + SPACING)
                 if (safeX > 1600) {
                     safeX = 50
                     safeY += 400
@@ -389,10 +408,8 @@ export const useStore = create<GameState>((set, get) => ({
             const oldScale = stack.scale
             const newScale = Math.max(0.2, Math.min(3, oldScale + change))
             if (oldScale === newScale) return state
-            const REM = 16
-            const STEP_HEIGHT_REM = 2.5
             const count = stack.cardIds.length
-            const baseHeight = ((count - 1) * STEP_HEIGHT_REM + 10.5) * REM
+            const baseHeight = ((count - 1) * STEP_REM + BASE_HEIGHT_REM) * REM
             const oldHeight = baseHeight * oldScale
             const newHeight = baseHeight * newScale
             const newY = stack.y + (oldHeight - newHeight)
@@ -401,7 +418,7 @@ export const useStore = create<GameState>((set, get) => ({
             newStacks[stackId] = updatedStack
             const PUSH_GAP = 0
             const SNAP_TOLERANCE = 5
-            const baseWidth = 14.4 * REM
+            const baseWidth = CARD_WIDTH_REM * REM
             const pushNeighbors = (currentId: string, currentRightEdge: number) => {
                 const neighbors = Object.values(newStacks)
                     .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
@@ -509,5 +526,14 @@ export const useStore = create<GameState>((set, get) => ({
         }
     },
 
-    initSettings: (settings) => set({ settings })
+    initSettings: (incomingSettings) => set(state => ({
+        settings: {
+            ...state.settings,
+            ...incomingSettings,
+            design: {
+                ...state.settings.design,
+                ...(incomingSettings.design || {})
+            }
+        }
+    }))
 }))
