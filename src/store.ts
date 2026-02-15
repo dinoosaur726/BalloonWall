@@ -53,6 +53,108 @@ interface Settings {
 
 // ... (Stack update helpers remain same) ...
 
+
+interface Rect {
+    left: number
+    right: number
+    top: number
+    bottom: number
+}
+
+const getStackRect = (stack: Stack): Rect => {
+    const width = CARD_WIDTH_REM * REM * stack.scale
+    const height = ((stack.cardIds.length - 1) * STEP_REM + BASE_HEIGHT_REM) * REM * stack.scale
+
+    return {
+        left: stack.x,
+        right: stack.x + width,
+        top: stack.y,
+        bottom: stack.y + height
+    }
+}
+
+const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId: string): Record<string, Stack> => {
+    const newStacks = { ...stacks }
+    const queue = [sourceStackId]
+    const processed = new Set<string>()
+
+    const PADDING = 0 // Px buffer
+
+    // Prevent infinite loops
+    let iterations = 0
+    const MAX_ITERATIONS = 1000
+
+    while (queue.length > 0 && iterations < MAX_ITERATIONS) {
+        iterations++
+        const currentId = queue.shift()!
+        if (processed.has(currentId)) continue
+        processed.add(currentId)
+
+        const currentStack = newStacks[currentId]
+        if (!currentStack) continue
+
+        const currentRect = getStackRect(currentStack)
+
+        // Find stacks that physically overlap horizontally AND are vertically "above" the current stack
+        // But since coordinate system is: Y=0 is top, Y+ is down.
+        // "Above" visually means physically smaller Y value.
+        // If current stack grows UP (y decreases), it pushes stacks with even SMALLER y further up (smaller y).
+
+        // Collision Condition:
+        // 1. Horizontal Overlap
+        // 2. Vertical Overlap (current.top < other.bottom)
+        // 3. Logic: We only push stacks UP. So we look for stacks whose BOTTOM is below CURRENT TOP.
+
+        Object.values(newStacks).forEach(other => {
+            if (other.id === currentId) return
+
+            const otherRect = getStackRect(other)
+
+            // Horizontal Overlap Check
+            const isHorizontalOverlap = currentRect.left < otherRect.right && currentRect.right > otherRect.left
+
+            if (isHorizontalOverlap) {
+                // VISUALLY ABOVE:
+                // In DOM/CSS: Y=0 is Top.
+                // If 'other' is visually above 'current', then other.y < current.y
+                // If current expands UPWARDS, current.y decreases.
+                // Collision happens if current.top < other.bottom.
+
+                // Check if 'other' is the one strictly ABOVE 'current'
+                // We only push 'other' if it is overlapping vertically OR if it is dangerously close?
+                // The request relies on standard stacking behavior.
+                // "If 552 stack grows up, the 300 stack above it must go up".
+
+                // So if other.bottom > current.top - PADDING?
+                // Actually strictly overlap: other.bottom > current.top
+
+                if (otherRect.bottom > currentRect.top + PADDING) {
+                    // But we must also ensure 'other' is logically meant to be above.
+                    // Simple heuristic: If other.top < current.top (it started above), keep it above.
+                    if (otherRect.top < currentRect.top) {
+                        // Push 'other' UP so its bottom aligns with current.top - PADDING
+                        // other.newBottom = current.top - PADDING
+                        // other.y + height = current.top - PADDING
+                        // other.y = current.top - PADDING - height
+
+                        const otherHeight = otherRect.bottom - otherRect.top
+                        const newY = currentRect.top - PADDING - otherHeight
+
+                        // Only update if it moves UP (decreases Y)
+                        if (newY < other.y) {
+                            newStacks[other.id] = { ...other, y: newY }
+                            // Since 'other' moved, it might push stacks above IT.
+                            queue.push(other.id)
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    return newStacks
+}
+
 const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null => {
     // ...
     const newCardIds = stack.cardIds.filter(id => !removedCardIds.includes(id))
@@ -67,6 +169,7 @@ const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null
         y: stack.y + shiftDown
     }
 }
+
 
 interface GameState {
     cards: Record<string, CardData>
@@ -191,13 +294,25 @@ export const useStore = create<GameState>((set, get) => ({
         let targetStack: Stack | null = null
 
         // Find a stack that has cards of the same amount
+        // Strategy: Prioritize stacks with FEWER cards. If equal, prioritize the NEWEST stack (later in the list).
         for (const stack of stackValues) {
             if (stack.cardIds.length > 0) {
                 const firstCardId = stack.cardIds[0]
                 const firstCard = get().cards[firstCardId]
                 if (firstCard && firstCard.amount === amount) {
-                    targetStack = stack
-                    break
+                    // Check if adding a card would go off-screen
+                    const nextY = stack.y - (STEP_REM * REM * stack.scale)
+                    if (nextY < 50) {
+                        continue
+                    }
+
+                    // Check if this stack is a better candidate
+                    // 1. If no target yet, take it.
+                    // 2. If this stack has fewer cards than the current best, take it.
+                    // 3. If equal cards, take it (because we iterate oldest -> newest, so later is newer).
+                    if (!targetStack || stack.cardIds.length <= targetStack.cardIds.length) {
+                        targetStack = stack
+                    }
                 }
             }
         }
@@ -211,9 +326,13 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
+            // --- RESOLVE VERTICAL COLLISIONS ---
+            let nextStacks = { ...get().stacks, [targetStack.id]: updatedStack }
+            nextStacks = resolveVerticalCollisions(nextStacks, targetStack.id)
+
             set(state => ({
                 cards: { ...state.cards, [newCard.id]: newCard },
-                stacks: { ...state.stacks, [targetStack.id]: updatedStack },
+                stacks: nextStacks
             }))
         } else {
             // No matching stack found -> Create New Stack
@@ -288,7 +407,10 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
-            return { stacks: newStacks }
+            // --- RESOLVE VERTICAL COLLISIONS ---
+            const resolvedStacks = resolveVerticalCollisions(newStacks, targetStackId)
+
+            return { stacks: resolvedStacks }
         })
     },
 
@@ -419,19 +541,29 @@ export const useStore = create<GameState>((set, get) => ({
             const PUSH_GAP = 0
             const SNAP_TOLERANCE = 5
             const baseWidth = CARD_WIDTH_REM * REM
+
+            // Track which stacks are part of the "push chain"
+            const pushedStackIds = new Set<string>([stackId])
+
             const pushNeighbors = (currentId: string, currentRightEdge: number) => {
                 const neighbors = Object.values(newStacks)
                     .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
                     .sort((a, b) => a.x - b.x)
+
                 for (const neighbor of neighbors) {
+                    // Check if they physically overlap (or touch)
                     if (neighbor.x < currentRightEdge + PUSH_GAP) {
                         const pushDist = (currentRightEdge + PUSH_GAP) - neighbor.x
                         newStacks[neighbor.id] = { ...neighbor, x: neighbor.x + pushDist }
+
+                        pushedStackIds.add(neighbor.id) // Track this stack
+
                         const neighborWidth = baseWidth * newStacks[neighbor.id].scale
                         pushNeighbors(neighbor.id, newStacks[neighbor.id].x + neighborWidth)
                     }
                 }
             }
+
             const pullNeighbors = (currentId: string, oldRightEdge: number, shiftAmount: number) => {
                 const neighbors = Object.values(newStacks)
                     .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
@@ -446,11 +578,42 @@ export const useStore = create<GameState>((set, get) => ({
                     }
                 }
             }
+
             const oldWidth = baseWidth * oldScale
             const newWidth = baseWidth * newScale
+
             if (newScale > oldScale) {
                 pushNeighbors(stackId, updatedStack.x + newWidth)
+
+                // Check for Off-Screen Overflow (Right Side)
+                // ONLY check stacks that were actually pushed (or are the source).
+                // Ignore far-away stacks that weren't involved in the push chain.
+                const relevantStacks = Object.values(newStacks).filter(s => pushedStackIds.has(s.id))
+
+                let maxRightEdge = 0
+                relevantStacks.forEach(s => {
+                    const sWidth = baseWidth * s.scale
+                    const sRight = s.x + sWidth
+                    if (sRight > maxRightEdge) {
+                        maxRightEdge = sRight
+                    }
+                })
+
+                const SCREEN_MARGIN = 0
+                const limitX = typeof window !== 'undefined' ? window.innerWidth - SCREEN_MARGIN : 1920
+
+                if (maxRightEdge > limitX) {
+                    const overflow = maxRightEdge - limitX
+
+                    if (overflow > 0) {
+                        relevantStacks.forEach(s => {
+                            newStacks[s.id] = { ...s, x: s.x - overflow }
+                        })
+                    }
+                }
+
             } else {
+
                 const widthDiff = newWidth - oldWidth
                 pullNeighbors(stackId, updatedStack.x + oldWidth, widthDiff)
             }
