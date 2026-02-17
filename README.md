@@ -57,7 +57,15 @@ http://localhost:5173/?obs=true
 | 스크롤 | 호버된 스택 크기 조절 |
 | ESC | 설정 창 열기/닫기 |
 
-## 📝 라이센스
+## � 릴리스
+
+```powershell
+npm version patch --no-git-tag-version
+git add -A; git commit -m "v버전번호 설명"
+git tag v버전번호; git push origin main --tags
+```
+
+## �📝 라이센스
 
 Proprietary License — © 2026 다이노소어. All rights reserved.
 

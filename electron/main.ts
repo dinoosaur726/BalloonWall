@@ -448,8 +448,7 @@ ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, da
       },
       body: JSON.stringify({
         title: `[피드백] ${data.title}`,
-        body: data.body,
-        labels: ['feedback']
+        body: data.body
       })
     })
 

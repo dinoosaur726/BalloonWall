@@ -518,9 +518,9 @@ function FeedbackTab() {
     const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
 
     const categories = [
-        { id: 'bug', label: '🐛 버그 제보' },
-        { id: 'feature', label: '💡 기능 제안' },
-        { id: 'other', label: '💬 기타 의견' },
+        { id: 'bug', label: '버그 제보' },
+        { id: 'feature', label: '기능 제안' },
+        { id: 'other', label: '기타 의견' },
     ]
 
     const handleSubmit = async () => {
@@ -561,8 +561,8 @@ function FeedbackTab() {
                         key={cat.id}
                         onClick={() => setCategory(cat.id)}
                         className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg border transition-all ${category === cat.id
-                                ? 'bg-white/10 border-white/20 text-white'
-                                : 'bg-transparent border-white/5 text-white/40 hover:text-white/60'
+                            ? 'bg-white/10 border-white/20 text-white'
+                            : 'bg-transparent border-white/5 text-white/40 hover:text-white/60'
                             }`}
                     >
                         {cat.label}
@@ -598,16 +598,16 @@ function FeedbackTab() {
                 onClick={handleSubmit}
                 disabled={!title.trim() || !message.trim() || status === 'sending'}
                 className={`w-full py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] ${status === 'sent'
-                        ? 'bg-emerald-600 text-white'
-                        : status === 'error'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20'
+                    ? 'bg-emerald-600 text-white'
+                    : status === 'error'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20'
                     }`}
             >
                 {status === 'sending' ? '전송 중...'
                     : status === 'sent' ? '✓ 전송 완료!'
                         : status === 'error' ? '✕ 전송 실패'
-                            : '📩 개발자에게 전달'}
+                            : '개발자에게 전달'}
             </button>
 
             <p className="text-[11px] text-white/25 text-center">
