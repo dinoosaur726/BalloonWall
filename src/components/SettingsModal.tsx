@@ -455,7 +455,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-white/60">버전</span>
-                                        <span className="text-sm font-mono text-white/80">v{packageJson.version}</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-mono text-white/80">v{packageJson.version}</span>
+                                            {isElectron() && (
+                                                <button
+                                                    onClick={() => window.ipcRenderer.send('check-for-update')}
+                                                    className="px-3 py-1 text-[11px] font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg transition-all"
+                                                >
+                                                    업데이트 확인
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

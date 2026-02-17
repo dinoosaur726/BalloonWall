@@ -433,6 +433,12 @@ ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall(false, true)
 })
 
+ipcMain.on('check-for-update', () => {
+  autoUpdater.checkForUpdates().catch((err: Error) => {
+    console.error('[AutoUpdater] Manual check failed:', err.message)
+  })
+})
+
 // ─── Feedback → GitHub Issue ───
 ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, data: { title: string; body: string }) => {
   const token = process.env.GH_TOKEN
