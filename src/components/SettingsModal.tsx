@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { isElectron } from '../utils/env'
+import packageJson from '../../package.json'
 
 interface SettingsModalProps {
     onClose: () => void
@@ -13,7 +14,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         ...settings,
         design: settings.design || { showNickname: true, showAmount: true }
     }))
-    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves'>('settings')
+    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves' | 'about'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
 
     // Saves Management
@@ -85,7 +86,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         settings: '설정',
         design: '디자인',
         history: '기록',
-        saves: '저장'
+        saves: '저장',
+        about: '정보'
     }
 
     return (
@@ -101,7 +103,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
 
                     <div className="flex gap-6">
-                        {['settings', 'design', 'history', 'saves'].map((tab) => (
+                        {['settings', 'design', 'history', 'saves', 'about'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -424,6 +426,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         <p className="text-[11px] text-white/30 text-center">"저장 후 초기화"를 누르려면 먼저 위에서 저장 이름을 입력하세요</p>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'about' && (
+                        <div className="space-y-6">
+                            {/* App Info */}
+                            <div className="text-center space-y-3 py-4">
+                                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2C8 2 6 5 6 8c0 4 6 8 6 8s6-4 6-8c0-3-2-6-6-6z" />
+                                        <line x1="12" y1="16" x2="12" y2="22" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-white">Warudo 풍벽지</h3>
+                                <p className="text-sm text-white/40">버전 {packageJson.version}</p>
+                            </div>
+
+                            {/* Creator */}
+                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">제작 정보</h3>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-white/60">제작자</span>
+                                        <span className="text-sm font-medium text-white">다이노소어</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-white/60">버전</span>
+                                        <span className="text-sm font-mono text-white/80">v{packageJson.version}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Copyright & License */}
+                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">저작권</h3>
+                                <p className="text-xs text-white/50 leading-relaxed">
+                                    © {new Date().getFullYear()} 다이노소어. All rights reserved.
+                                </p>
+                                <p className="text-xs text-white/50 leading-relaxed">
+                                    본 소프트웨어는 독점 라이센스에 따라 보호됩니다.
+                                    무단 복제, 수정, 배포, 리버스 엔지니어링 및 2차 저작물 생성이 엄격히 금지됩니다.
+                                    위반 시 관련 법률에 따라 민·형사상 책임을 질 수 있습니다.
+                                </p>
+                            </div>
+
+                            {/* Warning */}
+                            <div className="p-4 bg-red-500/5 rounded-xl border border-red-500/10">
+                                <p className="text-[11px] text-red-400/70 leading-relaxed text-center">
+                                    ⚠️ 본 프로그램의 소스코드, 스크립트 및 에셋의 무단 사용·편집·재배포는 법적 조치의 대상이 됩니다.
+                                </p>
                             </div>
                         </div>
                     )}
