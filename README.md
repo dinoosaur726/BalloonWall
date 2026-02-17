@@ -1,91 +1,65 @@
-# 🎈 BalloonWall
+# 🎈 Warudo 풍벽지 (BalloonWall)
 
-**BalloonWall** is a dynamic, interactive overlay application designed for streamers. It visualizes donations or events as stackable cards ("balloons") that drop onto the screen. It features physics-like stacking, drag-and-drop organization, and comprehensive theme customization, making it perfect for creative broadcast setups.
+**Warudo 풍벽지**는 방송 도네이션을 시각적으로 표현하는 인터랙티브 오버레이 앱입니다.
+도네이션이 카드 형태로 떨어지고, 쌓이고, 드래그로 정리할 수 있는 풍선벽을 만들어보세요.
 
-## ✨ Features
+## ✨ 주요 기능
 
-- **Dynamic Card Stacking**: Cards stack automatically when dropped on top of each other.
-- **Interactive Physics**: Drag and drop stacks, scale them up/down, and organize your wall.
-- **OBS Integration**: 
-    - **Green Screen Mode**: Chroma key support.
-    - **Transparent Mode**: Native window transparency support.
-    - **WebSocket API**: Trigger events remotely via a simple TCP WebSocket connection.
-- **Visual Themes**:
-    - Customize card images based on donation amounts (e.g., Bronze, Silver, Gold tiers).
-    - Set custom text colors for different tiers.
-    - Support for custom local images.
-- **Session Management**: Save and load your current layout state (snapshots).
-- **Auto-Organize**: Automatically arrange scattered cards into neat rows.
+- **카드 스태킹** — 도네이션이 카드 형태로 자동 스택
+- **드래그 앤 드롭** — 마우스로 카드/스택을 자유롭게 이동 및 정리
+- **자동 정렬** — 흩어진 카드를 깔끔하게 자동 배열
+- **티어별 디자인** — 금액별 카드 이미지 & 색상 커스터마이징 (Bronze → Gold)
+- **OBS 연동** — 브라우저 소스로 직접 삽입 가능
+- **WebSocket API** — 외부 프로그램에서 도네이션 이벤트 전송
+- **세션 관리** — 레이아웃 저장 & 불러오기
+- **자동 업데이트** — 새 버전 출시 시 앱 내 자동 업데이트 알림
+- **피드백 시스템** — 앱 내에서 개발자에게 직접 의견 전달
 
-## 🛠️ Tech Stack
+## 🛠️ 기술 스택
 
-- **Framework**: [Electron](https://www.electronjs.org/) + [React](https://react.dev/)
-- **Language**: TypeScript
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Drag & Drop**: [@dnd-kit](https://dndkit.com/)
-- **Bundler**: [Vite](https://vitejs.dev/)
+| 분류 | 기술 |
+|------|------|
+| 프레임워크 | Electron + React |
+| 언어 | TypeScript |
+| 상태 관리 | Zustand |
+| 스타일링 | Tailwind CSS |
+| 번들러 | Vite |
+| 빌드 | electron-builder |
+| CI/CD | GitHub Actions |
 
-## 🚀 Getting Started
+## 📡 WebSocket API
 
-### Prerequisites
-
-- Node.js (v18 or higher recommended)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/dinoosaur726/BalloonWall.git
-   cd BalloonWall
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Run in Development Mode:
-   ```bash
-   npm run dev
-   ```
-
-### Building for Production
-
-To create a standalone application (dmg/exe):
-
-```bash
-npm run build
-```
-
-The output will be in the `release` or `dist` folder.
-
-## 📡 WebSocket API (OBS / Stream Deck Integration)
-
-BalloonWall runs a local WebSocket server (default port: **3005**) to listen for incoming donation events.
+로컬 WebSocket 서버 (기본 포트: **3005**)로 도네이션 이벤트를 수신합니다.
 
 - **URL**: `ws://localhost:3005`
-- **Message Format**: `Nickname/Amount`
+- **형식**: `닉네임/금액`
 
-### Example (JavaScript/Node.js):
 ```javascript
 const ws = new WebSocket('ws://localhost:3005');
-ws.onopen = () => {
-    // Send a donation event
-    ws.send('Fan123/5000'); 
-};
+ws.onopen = () => ws.send('팬123/5000');
 ```
 
-This will spawn a card nicknamed **Fan123** with a value of **5000**.
+→ **팬123** 닉네임, **5000원** 금액의 카드가 생성됩니다.
 
-## 🎮 Controls
+## 🖥️ OBS 브라우저 소스 모드
 
-- **Drag**: Move stacks or individual cards.
-- **Scroll Wheel**: Scale the hovered stack size up or down.
-- **Escape**: Toggle the Settings / Control Panel.
-- **Right Click / Long Press**: Context interactions (if configured).
+BalloonWall은 OBS 브라우저 소스에서도 직접 사용할 수 있습니다.
 
-## 📝 License
+```
+http://localhost:5173/?obs=true
+```
 
-Proprietary / Personal Use (Update as needed)
+## 🎮 조작법
+
+| 동작 | 설명 |
+|------|------|
+| 드래그 | 카드/스택 이동 |
+| 스크롤 | 호버된 스택 크기 조절 |
+| ESC | 설정 창 열기/닫기 |
+
+## 📝 라이센스
+
+Proprietary License — © 2026 다이노소어. All rights reserved.
+
+본 소프트웨어의 무단 복제, 수정, 배포, 리버스 엔지니어링이 금지됩니다.
+자세한 내용은 [LICENSE](./LICENSE) 파일을 참조하세요.
