@@ -27,7 +27,7 @@
         ]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+    "artifactName": "BalloonWall-Setup-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
