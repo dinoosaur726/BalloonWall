@@ -23,8 +23,11 @@ export default defineConfig({
           build: {
             target: 'node20',
             rollupOptions: {
-              external: ['electron', 'ws', 'bufferutil', 'utf-8-validate'],
+              external: ['electron', 'ws', 'bufferutil', 'utf-8-validate', 'electron-updater'],
             },
+          },
+          define: {
+            'process.env.GH_TOKEN': JSON.stringify(process.env.GH_TOKEN || ''),
           },
         },
       },

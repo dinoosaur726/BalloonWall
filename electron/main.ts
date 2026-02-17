@@ -376,6 +376,15 @@ app.whenReady().then(() => {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
 
+    // Set feed URL with token for private repo access
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'dinoosaur726',
+      repo: 'BalloonWall',
+      private: true,
+      token: process.env.GH_TOKEN || ''
+    })
+
     // DEBUG: Show dialog for each event
     autoUpdater.on('checking-for-update', () => {
       console.log('[AutoUpdater] Checking for update...')
