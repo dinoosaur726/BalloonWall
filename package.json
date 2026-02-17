@@ -1,7 +1,7 @@
 {
   "name": "balloon-wall",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "다이노소어",
   "scripts": {
     "dev": "vite",
