@@ -376,12 +376,24 @@ app.whenReady().then(() => {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
 
+    // DEBUG: Show dialog for each event
+    autoUpdater.on('checking-for-update', () => {
+      console.log('[AutoUpdater] Checking for update...')
+      dialog.showMessageBox({ message: '[DEBUG] 업데이트 확인 중...' })
+    })
+
     autoUpdater.on('update-available', (info: any) => {
       console.log('[AutoUpdater] Update available:', info.version)
+      dialog.showMessageBox({ message: `[DEBUG] 업데이트 발견: v${info.version}` })
       win?.webContents.send('update-available', {
         version: info.version,
         releaseNotes: info.releaseNotes
       })
+    })
+
+    autoUpdater.on('update-not-available', (info: any) => {
+      console.log('[AutoUpdater] No update available:', info.version)
+      dialog.showMessageBox({ message: `[DEBUG] 최신 버전입니다: v${info.version}` })
     })
 
     autoUpdater.on('download-progress', (progress: any) => {
@@ -397,12 +409,14 @@ app.whenReady().then(() => {
 
     autoUpdater.on('error', (err: Error) => {
       console.error('[AutoUpdater] Error:', err.message)
+      dialog.showMessageBox({ message: `[DEBUG] 업데이트 에러: ${err.message}` })
     })
 
     // Check after 3 seconds to not block startup
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((err: Error) => {
         console.error('[AutoUpdater] Check failed:', err.message)
+        dialog.showMessageBox({ message: `[DEBUG] 체크 실패: ${err.message}` })
       })
     }, 3000)
   }

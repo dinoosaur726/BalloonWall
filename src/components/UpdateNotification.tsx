@@ -35,9 +35,9 @@ export default function UpdateNotification() {
         window.ipcRenderer.on('update-downloaded', onDownloaded)
 
         return () => {
-            window.ipcRenderer.removeListener('update-available', onAvailable)
-            window.ipcRenderer.removeListener('update-progress', onProgress)
-            window.ipcRenderer.removeListener('update-downloaded', onDownloaded)
+            window.ipcRenderer.off('update-available', onAvailable)
+            window.ipcRenderer.off('update-progress', onProgress)
+            window.ipcRenderer.off('update-downloaded', onDownloaded)
         }
     }, [])
 

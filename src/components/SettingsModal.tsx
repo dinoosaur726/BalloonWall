@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
     // Translation Map for Tabs
     const tabNames: Record<string, string> = {
-        settings: '설정1',
+        settings: '설정',
         design: '디자인',
         history: '기록',
         saves: '저장'
