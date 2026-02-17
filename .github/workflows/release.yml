@@ -25,7 +25,10 @@ jobs:
       - name: Build and Package
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: tsc && vite build && electron-builder --publish never
+        run: |
+          npx tsc
+          npx vite build
+          npx electron-builder --publish never
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
