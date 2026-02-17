@@ -14,7 +14,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         ...settings,
         design: settings.design || { showNickname: true, showAmount: true }
     }))
-    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves' | 'about'>('settings')
+    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves' | 'about' | 'feedback'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
 
     // Saves Management
@@ -87,7 +87,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         design: '디자인',
         history: '기록',
         saves: '저장',
-        about: '정보'
+        about: '정보',
+        feedback: '피드백'
     }
 
     return (
@@ -103,7 +104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
 
                     <div className="flex gap-6">
-                        {['settings', 'design', 'history', 'saves', 'about'].map((tab) => (
+                        {['settings', 'design', 'history', 'saves', 'about', 'feedback'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -480,6 +481,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'feedback' && (
+                        <FeedbackTab />
+                    )}
                 </div>
 
                 {/* Footer (Cancel/Save) */}
@@ -503,5 +508,111 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 }
             </div >
         </div >
+    )
+}
+
+function FeedbackTab() {
+    const [category, setCategory] = useState('bug')
+    const [title, setTitle] = useState('')
+    const [message, setMessage] = useState('')
+    const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+
+    const categories = [
+        { id: 'bug', label: '🐛 버그 제보' },
+        { id: 'feature', label: '💡 기능 제안' },
+        { id: 'other', label: '💬 기타 의견' },
+    ]
+
+    const handleSubmit = async () => {
+        if (!title.trim() || !message.trim()) return
+        setStatus('sending')
+
+        const categoryLabel = categories.find(c => c.id === category)?.label || category
+        const body = `**카테고리**: ${categoryLabel}\n\n${message}`
+
+        try {
+            const result = await window.ipcRenderer.invoke('submit-feedback', { title: title.trim(), body })
+            if (result.success) {
+                setStatus('sent')
+                setTitle('')
+                setMessage('')
+                setTimeout(() => setStatus('idle'), 3000)
+            } else {
+                setStatus('error')
+                setTimeout(() => setStatus('idle'), 3000)
+            }
+        } catch {
+            setStatus('error')
+            setTimeout(() => setStatus('idle'), 3000)
+        }
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="text-center py-2">
+                <h3 className="text-lg font-semibold text-white">개발자에게 전달하기</h3>
+                <p className="text-xs text-white/40 mt-1">버그 제보, 기능 제안, 의견을 보내주세요</p>
+            </div>
+
+            {/* Category */}
+            <div className="flex gap-2">
+                {categories.map(cat => (
+                    <button
+                        key={cat.id}
+                        onClick={() => setCategory(cat.id)}
+                        className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg border transition-all ${category === cat.id
+                                ? 'bg-white/10 border-white/20 text-white'
+                                : 'bg-transparent border-white/5 text-white/40 hover:text-white/60'
+                            }`}
+                    >
+                        {cat.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+                <label className="text-xs font-medium text-white/50">제목</label>
+                <input
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    placeholder="간단하게 요약해주세요"
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-colors"
+                />
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+                <label className="text-xs font-medium text-white/50">내용</label>
+                <textarea
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    placeholder="자세한 내용을 적어주세요"
+                    rows={5}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 transition-colors resize-none"
+                />
+            </div>
+
+            {/* Submit */}
+            <button
+                onClick={handleSubmit}
+                disabled={!title.trim() || !message.trim() || status === 'sending'}
+                className={`w-full py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98] ${status === 'sent'
+                        ? 'bg-emerald-600 text-white'
+                        : status === 'error'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20'
+                    }`}
+            >
+                {status === 'sending' ? '전송 중...'
+                    : status === 'sent' ? '✓ 전송 완료!'
+                        : status === 'error' ? '✕ 전송 실패'
+                            : '📩 개발자에게 전달'}
+            </button>
+
+            <p className="text-[11px] text-white/25 text-center">
+                피드백은 개발팀에게 직접 전달됩니다
+            </p>
+        </div>
     )
 }

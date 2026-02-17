@@ -432,3 +432,36 @@ ipcMain.on('download-update', () => {
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall(false, true)
 })
+
+// ─── Feedback → GitHub Issue ───
+ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, data: { title: string; body: string }) => {
+  const token = process.env.GH_TOKEN
+  if (!token) return { success: false, error: '인증 토큰이 없습니다' }
+
+  try {
+    const res = await fetch('https://api.github.com/repos/dinoosaur726/BalloonWall/issues', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: `[피드백] ${data.title}`,
+        body: data.body,
+        labels: ['feedback']
+      })
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('[Feedback] Failed:', err)
+      return { success: false, error: '전송에 실패했습니다' }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('[Feedback] Error:', err.message)
+    return { success: false, error: err.message }
+  }
+})
