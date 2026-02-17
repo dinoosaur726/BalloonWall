@@ -1,7 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { WebSocketServer } from 'ws'
+import http from 'node:http'
+import fs from 'node:fs'
+import { WebSocketServer, WebSocket } from 'ws'
 import Store from 'electron-store'
+import { autoUpdater } from 'electron-updater'
 
 // Standard CJS require for Electron
 const electron = require('electron')
@@ -24,12 +27,19 @@ console.log('[Main] VITE_PUBLIC:', process.env.VITE_PUBLIC)
 
 let win: any | null
 let wss: WebSocketServer | null
+let httpServer: http.Server | null
+
+// ─── Current State Cache (for sync to browser clients) ───
+let currentState: { cards: any, stacks: any, settings: any, history: any } = {
+  cards: {},
+  stacks: {},
+  settings: {},
+  history: []
+}
 
 interface Settings {
   wsPort: number
-  isTransparent?: boolean
-  hideUI?: boolean
-  isGreenScreen?: boolean
+  httpPort: number
   streamerId?: string
   signatureBalloons?: string
   autoAdd?: boolean
@@ -39,9 +49,7 @@ interface Settings {
 const store = new Store<Settings>({
   defaults: {
     wsPort: 3005,
-    isTransparent: false,
-    hideUI: false,
-    isGreenScreen: false,
+    httpPort: 3006,
     streamerId: '',
     signatureBalloons: '',
     autoAdd: true,
@@ -49,6 +57,129 @@ const store = new Store<Settings>({
   }
 })
 
+// ─── MIME Type Helper ───
+const MIME_MAP: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.map': 'application/json',
+}
+
+// ─── HTTP Static File Server (for OBS Browser Source) ───
+function startHttpServer(port: number) {
+  if (httpServer) {
+    httpServer.close()
+    httpServer = null
+  }
+
+  // Determine the directory to serve
+  const serveDir = VITE_DEV_SERVER_URL
+    ? path.join(process.env.APP_ROOT!, 'dist') // Fallback; in dev mode, we proxy to Vite
+    : RENDERER_DIST
+
+  httpServer = http.createServer((req, res) => {
+    // Add CORS headers for OBS browser source
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+    let urlPath = req.url || '/'
+
+    // Remove query strings
+    urlPath = urlPath.split('?')[0]
+
+    // Default to index.html
+    if (urlPath === '/') urlPath = '/index.html'
+
+    // In dev mode, proxy to Vite dev server
+    if (VITE_DEV_SERVER_URL) {
+      // Proxy requests to Vite dev server
+      const targetUrl = new URL(urlPath, VITE_DEV_SERVER_URL)
+
+      // Use dynamic import for http proxy-like behavior
+      const proxyReq = http.request(targetUrl.href, { method: 'GET' }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 200, proxyRes.headers)
+        proxyRes.pipe(res)
+      })
+      proxyReq.on('error', () => {
+        res.writeHead(502)
+        res.end('Proxy Error')
+      })
+      proxyReq.end()
+      return
+    }
+
+    // Production: serve static files
+    const filePath = path.join(serveDir, urlPath)
+
+    // Security: prevent path traversal
+    if (!filePath.startsWith(serveDir)) {
+      res.writeHead(403)
+      res.end('Forbidden')
+      return
+    }
+
+    const ext = path.extname(filePath).toLowerCase()
+    const contentType = MIME_MAP[ext] || 'application/octet-stream'
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        // SPA fallback: serve index.html for non-file routes
+        if (err.code === 'ENOENT') {
+          fs.readFile(path.join(serveDir, 'index.html'), (err2, indexData) => {
+            if (err2) {
+              res.writeHead(404)
+              res.end('Not Found')
+            } else {
+              res.writeHead(200, { 'Content-Type': 'text/html' })
+              res.end(indexData)
+            }
+          })
+        } else {
+          res.writeHead(500)
+          res.end('Internal Server Error')
+        }
+        return
+      }
+
+      res.writeHead(200, { 'Content-Type': contentType })
+      res.end(data)
+    })
+  })
+
+  httpServer.listen(port, () => {
+    console.log(`[Main] HTTP server started on port ${port} — OBS Browser Source: http://localhost:${port}`)
+  })
+
+  httpServer.on('error', (err: any) => {
+    console.error('[Main] HTTP server error:', err)
+  })
+}
+
+// ─── Broadcast state to all WebSocket clients ───
+function broadcastToWsClients(type: string, payload: any) {
+  if (!wss) return
+  const message = JSON.stringify({ type, payload })
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message)
+    }
+  })
+}
+
+// ─── WebSocket Server ───
 function startWebSocketServer(port: number) {
   if (wss) {
     wss.close()
@@ -60,10 +191,29 @@ function startWebSocketServer(port: number) {
 
     wss.on('connection', (ws) => {
       console.log('Client connected')
+
+      // Send current state to newly connected client (for OBS browser source sync)
+      ws.send(JSON.stringify({
+        type: 'full-state',
+        payload: currentState
+      }))
+
       ws.on('message', (message) => {
         const msgStr = message.toString()
         console.log('Received:', msgStr)
-        // Format: "Nickname/Amount"
+
+        // Try parsing as JSON first (for structured messages)
+        try {
+          const parsed = JSON.parse(msgStr)
+          // Handle structured messages if needed in the future
+          if (parsed.type) {
+            return
+          }
+        } catch {
+          // Not JSON, try legacy format
+        }
+
+        // Legacy Format: "Nickname/Amount"
         if (msgStr.includes('/')) {
           const [nickname, amountStr] = msgStr.split('/')
           const amount = parseInt(amountStr, 10)
@@ -90,6 +240,7 @@ function createWindow() {
     fullscreenable: false, // Prevent maximizing
     x: 0,
     y: 0,
+    icon: path.join(process.env.APP_ROOT!, 'build', 'icon.png'),
     frame: false, // Frameless for clean OBS capture
     titleBarStyle: 'hidden', // Hide title bar on Mac
     transparent: true, // Keep transparency support
@@ -100,18 +251,9 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: false // Allow loading local resources (file://)
-      // contextIsolation: true, // default true
-      // nodeIntegration: false, // default false
     },
   })
 
-  // Make click-through for background but not for interactive elements? 
-  // Electron basic click-through: win.setIgnoreMouseEvents(true, { forward: true })
-  // Renderer needs to handle mouse enter/leave to toggle ignore mouse events.
-  // For now, let's keep it interactive everywhere to test Drag & Drop comfortably.
-  // win.setIgnoreMouseEvents(false)
-
-  // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
   })
@@ -129,10 +271,6 @@ ipcMain.handle('get-settings', () => {
   return store.store
 })
 
-import fs from 'node:fs'
-
-// ... existing code ...
-
 ipcMain.handle('select-image', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -145,13 +283,11 @@ ipcMain.handle('select-image', async () => {
     return null
   }
 
-  // Return file:// URL for renderer usage
   return `file://${result.filePaths[0]}`
 })
 
 // Save Base64 Data URL to Disk
 ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl: string) => {
-  // data:image/png;base64,...
   const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
   if (!matches || matches.length !== 3) {
     return null
@@ -160,7 +296,6 @@ ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl:
   const type = matches[1]
   const buffer = Buffer.from(matches[2], 'base64')
 
-  // Save to App Data Directory
   const userDataPath = app.getPath('userData')
   const fileName = `cropped_${Date.now()}.${type}`
   const filePath = path.join(userDataPath, fileName)
@@ -190,10 +325,7 @@ ipcMain.handle('fetch-image', async (_event: any, url: string) => {
 })
 
 ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => {
-  // electron-store set(object) requires full object or matching. Partial causes issue.
-  // Iterating to set individual keys is safer for Partial updates.
   for (const [key, value] of Object.entries(newSettings)) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     store.set(key, value)
   }
@@ -201,7 +333,18 @@ ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => 
   if (newSettings.wsPort) {
     startWebSocketServer(newSettings.wsPort)
   }
+
+  if (newSettings.httpPort) {
+    startHttpServer(newSettings.httpPort)
+  }
+
   return store.store
+})
+
+// ─── State Sync: Renderer → Main → WS Clients ───
+ipcMain.on('state-sync', (_event: any, state: any) => {
+  currentState = state
+  broadcastToWsClients('state-update', state)
 })
 
 ipcMain.on('log', (_event: any, message: any) => {
@@ -223,6 +366,55 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   createWindow()
-  const port = store.get('wsPort')
-  startWebSocketServer(port)
+  const wsPort = store.get('wsPort')
+  const httpPort = store.get('httpPort')
+  startWebSocketServer(wsPort)
+  startHttpServer(httpPort)
+
+  // ─── Auto-Update (production only) ───
+  if (!VITE_DEV_SERVER_URL) {
+    autoUpdater.autoDownload = false
+    autoUpdater.autoInstallOnAppQuit = false
+
+    autoUpdater.on('update-available', (info: any) => {
+      console.log('[AutoUpdater] Update available:', info.version)
+      win?.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes
+      })
+    })
+
+    autoUpdater.on('download-progress', (progress: any) => {
+      win?.webContents.send('update-progress', {
+        percent: Math.round(progress.percent)
+      })
+    })
+
+    autoUpdater.on('update-downloaded', () => {
+      console.log('[AutoUpdater] Update downloaded, ready to install')
+      win?.webContents.send('update-downloaded')
+    })
+
+    autoUpdater.on('error', (err: Error) => {
+      console.error('[AutoUpdater] Error:', err.message)
+    })
+
+    // Check after 3 seconds to not block startup
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err: Error) => {
+        console.error('[AutoUpdater] Check failed:', err.message)
+      })
+    }, 3000)
+  }
+})
+
+// ─── Auto-Update IPC Handlers ───
+ipcMain.on('download-update', () => {
+  autoUpdater.downloadUpdate().catch((err: Error) => {
+    console.error('[AutoUpdater] Download failed:', err.message)
+  })
+})
+
+ipcMain.on('install-update', () => {
+  autoUpdater.quitAndInstall(false, true)
 })

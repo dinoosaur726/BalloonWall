@@ -4,6 +4,7 @@
   "appId": "com.dinosaur.balloonwall",
   "asar": true,
   "productName": "Warudo 풍벽지",
+  "icon": "build/icon.png",
   "directories": {
     "output": "release/${version}"
   },
@@ -39,5 +40,12 @@
       "AppImage"
     ],
     "artifactName": "${productName}-Linux-${version}.${ext}"
-  }
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "dinoosaur726",
+      "repo": "BalloonWall"
+    }
+  ]
 }

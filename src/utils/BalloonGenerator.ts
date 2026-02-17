@@ -1,4 +1,6 @@
 
+import { isElectron } from './env'
+
 export class BalloonGenerator {
     private static fontName = 'NanumGothicExtraBold';
     private static fontLoaded = false;
@@ -39,8 +41,8 @@ export class BalloonGenerator {
 
             let finalSrc = src;
 
-            // Use IPC for external URLs to bypass CORS/CSP
-            if (src.startsWith('http') && window.ipcRenderer) {
+            // Use IPC for external URLs to bypass CORS/CSP (Electron only)
+            if (src.startsWith('http') && isElectron() && window.ipcRenderer) {
                 try {
                     const dataUrl = await window.ipcRenderer.invoke('fetch-image', src);
                     if (dataUrl) {
@@ -50,6 +52,17 @@ export class BalloonGenerator {
                     }
                 } catch (e) {
                     console.error(`[BalloonGenerator] IPC fetch failed for ${src}, falling back to direct load.`, e);
+                }
+            } else if (src.startsWith('http') && !isElectron()) {
+                // Browser mode: try direct fetch (works for CORS-friendly URLs)
+                try {
+                    const response = await fetch(src);
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        finalSrc = URL.createObjectURL(blob);
+                    }
+                } catch (e) {
+                    console.error(`[BalloonGenerator] Direct fetch failed for ${src}, using src directly.`, e);
                 }
             }
 

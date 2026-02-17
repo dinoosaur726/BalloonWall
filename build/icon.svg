@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b6b"/>
+      <stop offset="100%" style="stop-color:#ee5a24"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#74b9ff"/>
+      <stop offset="100%" style="stop-color:#0984e3"/>
+    </linearGradient>
+    <linearGradient id="yellow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffeaa7"/>
+      <stop offset="100%" style="stop-color:#fdcb6e"/>
+    </linearGradient>
+    <linearGradient id="pink" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fd79a8"/>
+      <stop offset="100%" style="stop-color:#e84393"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#55efc4"/>
+      <stop offset="100%" style="stop-color:#00b894"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  
+  <!-- Subtle grid pattern -->
+  <g opacity="0.06" stroke="#fff" stroke-width="1">
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+  </g>
+  
+  <!-- Balloon: Red (top-left) -->
+  <g filter="url(#shadow)">
+    <ellipse cx="165" cy="175" rx="55" ry="68" fill="url(#red)"/>
+    <polygon points="165,243 158,260 172,260" fill="#d63031"/>
+    <line x1="165" y1="260" x2="165" y2="310" stroke="#aaa" stroke-width="2"/>
+    <ellipse cx="150" cy="155" rx="12" ry="18" fill="#fff" opacity="0.25" transform="rotate(-15,150,155)"/>
+  </g>
+
+  <!-- Balloon: Blue (top-right) -->
+  <g filter="url(#shadow)">
+    <ellipse cx="345" cy="160" rx="55" ry="68" fill="url(#blue)"/>
+    <polygon points="345,228 338,245 352,245" fill="#0652DD"/>
+    <line x1="345" y1="245" x2="345" y2="310" stroke="#aaa" stroke-width="2"/>
+    <ellipse cx="330" cy="140" rx="12" ry="18" fill="#fff" opacity="0.25" transform="rotate(-15,330,140)"/>
+  </g>
+
+  <!-- Balloon: Yellow (center) -->
+  <g filter="url(#shadow)">
+    <ellipse cx="256" cy="210" rx="58" ry="72" fill="url(#yellow)"/>
+    <polygon points="256,282 249,300 263,300" fill="#e1b12c"/>
+    <line x1="256" y1="300" x2="256" y2="360" stroke="#aaa" stroke-width="2"/>
+    <ellipse cx="240" cy="190" rx="13" ry="19" fill="#fff" opacity="0.25" transform="rotate(-15,240,190)"/>
+  </g>
+
+  <!-- Balloon: Pink (bottom-left) -->
+  <g filter="url(#shadow)">
+    <ellipse cx="180" cy="310" rx="48" ry="60" fill="url(#pink)"/>
+    <polygon points="180,370 174,385 186,385" fill="#c44569"/>
+    <line x1="180" y1="385" x2="180" y2="420" stroke="#aaa" stroke-width="2"/>
+    <ellipse cx="167" cy="293" rx="10" ry="16" fill="#fff" opacity="0.25" transform="rotate(-15,167,293)"/>
+  </g>
+
+  <!-- Balloon: Green (bottom-right) -->
+  <g filter="url(#shadow)">
+    <ellipse cx="340" cy="300" rx="48" ry="60" fill="url(#green)"/>
+    <polygon points="340,360 334,375 346,375" fill="#009432"/>
+    <line x1="340" y1="375" x2="340" y2="420" stroke="#aaa" stroke-width="2"/>
+    <ellipse cx="327" cy="283" rx="10" ry="16" fill="#fff" opacity="0.25" transform="rotate(-15,327,283)"/>
+  </g>
+
+  <!-- "BW" text at bottom -->
+  <text x="256" y="465" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="48" fill="#fff" opacity="0.15">BW</text>
+</svg>

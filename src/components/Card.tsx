@@ -91,7 +91,7 @@ export const Card: React.FC<CardProps> = ({
             {/* Text Area */}
             <div
                 className={twMerge(
-                    "w-full flex flex-col items-center justify-center flex-1 relative z-10 bg-white",
+                    "w-full flex flex-col items-center justify-center flex-1 relative z-10 bg-white rounded-xl",
                     // Explicit bg-white
                 )}
                 style={{

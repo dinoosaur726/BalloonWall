@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import { BalloonGenerator } from './utils/BalloonGenerator'
+import { isElectron } from './utils/env'
 import {
     REM,
     STEP_REM,
@@ -34,9 +35,7 @@ const STANDARD_RANGES = [
 
 interface Settings {
     wsPort: number
-    isTransparent: boolean
-    isGreenScreen: boolean
-    hideUI: boolean
+    httpPort: number
     // Signature Balloon Config
     streamerId?: string
     signatureBalloons?: string // Space separated numbers: "100 200 1234"
@@ -47,7 +46,6 @@ interface Settings {
     design: {
         showNickname: boolean
         showAmount: boolean
-        enableBlur: boolean
     }
 }
 
@@ -211,17 +209,14 @@ export const useStore = create<GameState>((set, get) => ({
 
     settings: {
         wsPort: 3005,
-        isTransparent: false,
-        isGreenScreen: false,
-        hideUI: false,
+        httpPort: 3006,
         streamerId: '',
         signatureBalloons: '',
         autoAdd: true,
         minAmount: 0,
         design: {
             showNickname: true,
-            showAmount: true,
-            enableBlur: true
+            showAmount: true
         }
     },
 
@@ -700,3 +695,20 @@ export const useStore = create<GameState>((set, get) => ({
         }
     }))
 }))
+
+// ─── State Sync: Send state changes to Main Process for WS broadcast ───
+if (isElectron()) {
+    // Debounced state sync to avoid flooding IPC
+    let syncTimer: ReturnType<typeof setTimeout> | null = null
+    useStore.subscribe((state) => {
+        if (syncTimer) clearTimeout(syncTimer)
+        syncTimer = setTimeout(() => {
+            window.ipcRenderer.send('state-sync', {
+                cards: state.cards,
+                stacks: state.stacks,
+                settings: state.settings,
+                history: state.history
+            })
+        }, 50) // 50ms debounce
+    })
+}

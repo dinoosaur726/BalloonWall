@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
+import { isElectron } from '../utils/env'
 
 interface SettingsModalProps {
     onClose: () => void
@@ -10,9 +11,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const { settings, history, setSettings, addCard, loadState } = store
     const [localSettings, setLocalSettings] = useState(() => ({
         ...settings,
-        design: settings.design || { showNickname: true, showAmount: true, enableBlur: true }
+        design: settings.design || { showNickname: true, showAmount: true }
     }))
     const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves'>('settings')
+    const [confirmReset, setConfirmReset] = useState(false)
 
     // Saves Management
     const [saveName, setSaveName] = useState('')
@@ -21,7 +23,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     useEffect(() => {
         setLocalSettings(prev => ({
             ...settings,
-            design: settings.design || prev.design || { showNickname: true, showAmount: true, enableBlur: true }
+            design: settings.design || prev.design || { showNickname: true, showAmount: true }
         }))
         updateSavedInstances()
     }, [settings])
@@ -33,7 +35,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
     const handleSaveSettings = () => {
         setSettings(localSettings)
-        window.ipcRenderer.invoke('set-settings', localSettings)
+        if (isElectron()) {
+            window.ipcRenderer.invoke('set-settings', localSettings)
+        }
         onClose()
     }
 
@@ -59,43 +63,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         updateSavedInstances()
     }
 
-    const handleNewInstance = () => {
-        // User request:
-        // 1. Ask "Save current instance?"
-        // 2. Yes -> Ask specific name -> Save -> Reset
-        // 3. No -> Reset immediately (discard)
-
-        // We use window.confirm. OK = Yes (Save), Cancel = No (Discard)
-        // To allow an actual "Cancel Operation", we normally need a custom modal.
-        // But adhering to instructions:
-        const wantToSave = window.confirm("Do you want to SAVE your current instance before starting a new one?\n\nOK = Save & Reset\nCancel = Don't Save (Just Reset)")
-
-        if (wantToSave) {
-            // Yes, Save
-            const name = window.prompt("Enter name for this save:")
-            if (name) {
-                const stateToSave = useStore.getState()
-                localStorage.setItem(`BW_SAVE_${name}`, JSON.stringify(stateToSave))
-                updateSavedInstances()
-                store.resetState()
-                onClose() // Close modal
-            }
-            // If they cancel the name prompt, maybe they want to cancel the whole thing?
-            // checking "if (name)" protects against empty/cancel.
-        } else {
-            // No, Don't Save -> Reset immediately
-            store.resetState()
-            onClose()
-        }
+    const handleSaveAndReset = () => {
+        if (!saveName.trim()) return
+        const stateToSave = useStore.getState()
+        localStorage.setItem(`BW_SAVE_${saveName.trim()}`, JSON.stringify(stateToSave))
+        updateSavedInstances()
+        setSaveName('')
+        store.resetState()
+        setConfirmReset(false)
+        onClose()
     }
 
-
-
-
+    const handleDiscardAndReset = () => {
+        store.resetState()
+        setConfirmReset(false)
+        onClose()
+    }
 
     // Translation Map for Tabs
     const tabNames: Record<string, string> = {
-        settings: '설정',
+        settings: '설정1',
         design: '디자인',
         history: '기록',
         saves: '저장'
@@ -108,7 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <div className="p-6 pb-0 border-b border-white/10 shrink-0">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            제어판
+                            설정
                         </h2>
                         <button onClick={onClose} className="text-white/50 hover:text-white transition-colors">✕</button>
                     </div>
@@ -145,127 +132,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </button>
                             </div>
 
-                            {/* General Settings */}
-                            <div className="space-y-6">
-                                {/* Display Settings Group */}
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">화면 설정</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
-                                            <span className="text-sm font-medium text-white/90">투명 배경</span>
-                                            <button
-                                                onClick={() => setLocalSettings({ ...localSettings, isTransparent: !localSettings.isTransparent, isGreenScreen: false })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.isTransparent ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.isTransparent ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
-                                            <span className="text-sm font-medium text-white/90">크로마키 (초록)</span>
-                                            <button
-                                                onClick={() => setLocalSettings({ ...localSettings, isGreenScreen: !localSettings.isGreenScreen, isTransparent: false })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.isGreenScreen ? 'bg-green-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.isGreenScreen ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
-                                        <div className="col-span-2 flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
-                                            <span className="text-sm font-medium text-white/90">UI 숨기기 (방송 모드)</span>
-                                            <button
-                                                onClick={() => setLocalSettings({ ...localSettings, hideUI: !localSettings.hideUI })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.hideUI ? 'bg-red-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.hideUI ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
+                            {/* Network & OBS Settings */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">연동 설정</h3>
+
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-white/70 mb-1.5">웹소켓 포트</label>
+                                        <input
+                                            type="number"
+                                            value={localSettings.wsPort}
+                                            onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-white/70 mb-1.5">OBS 브라우저 소스 포트</label>
+                                        <input
+                                            type="number"
+                                            value={localSettings.httpPort || 3006}
+                                            onChange={(e) => setLocalSettings({ ...localSettings, httpPort: parseInt(e.target.value) || 3006 })}
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                        />
+                                        <div className="mt-2 p-2.5 bg-black/30 rounded-lg border border-white/5">
+                                            <p className="text-[11px] text-white/50 mb-1">OBS 브라우저 소스 URL:</p>
+                                            <code className="text-xs text-emerald-400 font-mono select-all break-all">
+                                                {`http://localhost:${localSettings.httpPort || 3006}?wsPort=${localSettings.wsPort || 3005}`}
+                                            </code>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Network & Signature Settings */}
-                                <div className="space-y-3 pt-4 border-t border-white/10">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">연동 설정</h3>
-
-                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                                        <div className="col-span-2">
+                                            <h4 className="text-xs font-semibold text-blue-400 mb-2">시그니처 풍선 (SOOP/AfreecaTV)</h4>
+                                        </div>
                                         <div>
-                                            <label className="block text-xs font-medium text-white/70 mb-1.5">웹소켓 포트</label>
+                                            <label className="block text-xs font-medium text-white/60 mb-1.5">BJ 아이디</label>
                                             <input
-                                                type="number"
-                                                value={localSettings.wsPort}
-                                                onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) })}
-                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                type="text"
+                                                placeholder="sooplive ID"
+                                                value={localSettings.streamerId || ''}
+                                                onChange={(e) => setLocalSettings({ ...localSettings, streamerId: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
                                             />
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                                            <div className="col-span-2">
-                                                <h4 className="text-xs font-semibold text-blue-400 mb-2">시그니처 풍선 (SOOP/AfreecaTV)</h4>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-white/60 mb-1.5">BJ 아이디</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="sooplive ID"
-                                                    value={localSettings.streamerId || ''}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, streamerId: e.target.value })}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-white/60 mb-1.5">시그니처 개수 (공백 구분)</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="예: 100 282 486"
-                                                    value={localSettings.signatureBalloons || ''}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, signatureBalloons: e.target.value })}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
-                                                />
-                                            </div>
-                                            <div className="col-span-2 text-[11px] text-white/30 leading-relaxed">
-                                                * BJ 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
-                                                자동으로 방송국의 시그니처 이미지를 불러옵니다.
-                                            </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-white/60 mb-1.5">시그니처 개수 (공백 구분)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="예: 100 282 486"
+                                                value={localSettings.signatureBalloons || ''}
+                                                onChange={(e) => setLocalSettings({ ...localSettings, signatureBalloons: e.target.value })}
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder:text-white/20"
+                                            />
+                                        </div>
+                                        <div className="col-span-2 text-[11px] text-white/30 leading-relaxed">
+                                            * BJ 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
+                                            자동으로 방송국의 시그니처 이미지를 불러옵니다.
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
+                            {/* Automation Settings */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자동화 설정</h3>
 
-                                {/* Automation Settings */}
-                                <div className="space-y-3 pt-4 border-t border-white/10">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자동화 설정</h3>
-
-                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <div className="text-sm font-medium text-white/90">자동 카드 생성</div>
-                                                <div className="text-xs text-white/50 mt-0.5">
-                                                    {localSettings.autoAdd ? '후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
-                                                </div>
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-sm font-medium text-white/90">자동 카드 생성</div>
+                                            <div className="text-xs text-white/50 mt-0.5">
+                                                {localSettings.autoAdd ? '후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
                                             </div>
-                                            <button
-                                                onClick={() => setLocalSettings({ ...localSettings, autoAdd: !localSettings.autoAdd })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAdd ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAdd ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
                                         </div>
-
-                                        {localSettings.autoAdd && (
-                                            <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                <label className="block text-xs font-medium text-white/70 mb-1.5">
-                                                    최소 금액 설정 (OO개 이상만 제작)
-                                                </label>
-                                                <div className="flex items-center gap-3">
-                                                    <input
-                                                        type="number"
-                                                        value={localSettings.minAmount}
-                                                        onChange={(e) => setLocalSettings({ ...localSettings, minAmount: parseInt(e.target.value) || 0 })}
-                                                        className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                                    />
-                                                    <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <button
+                                            onClick={() => setLocalSettings({ ...localSettings, autoAdd: !localSettings.autoAdd })}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAdd ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAdd ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
                                     </div>
+
+                                    {localSettings.autoAdd && (
+                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
+                                                최소 금액 설정 (OO개 이상만 제작)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    value={localSettings.minAmount}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmount: parseInt(e.target.value) || 0 })}
+                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                />
+                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -306,27 +271,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     </div>
                                 </div>
 
-                                {/* Effects */}
-                                <div className="space-y-3 pt-4 border-t border-white/10">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">효과</h3>
-                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <div className="text-sm font-medium text-white/90">드래그 블러 효과</div>
-                                                <div className="text-xs text-white/50 mt-0.5">카드를 잡고 이동할 때 배경이 흐려집니다.</div>
-                                            </div>
-                                            <button
-                                                onClick={() => setLocalSettings({
-                                                    ...localSettings,
-                                                    design: { ...localSettings.design, enableBlur: !localSettings.design.enableBlur }
-                                                })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.enableBlur ? 'bg-purple-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.enableBlur ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                     )}
@@ -378,55 +323,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                     {activeTab === 'saves' && (
                         <div className="space-y-6">
-                            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-3">
-                                <h3 className="text-sm font-semibold text-blue-200 uppercase tracking-wider">세션 관리</h3>
-                                <button
-                                    onClick={handleNewInstance}
-                                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-                                >
-                                    새 인스턴스 시작
-                                </button>
-                                <p className="text-xs text-blue-200/60 text-center">
-                                    새로 시작하기 전에 현재 상태를 저장할 수 있습니다.
-                                </p>
-                            </div>
-
-                            <div className="space-y-4">
+                            {/* 현재 상태 저장 */}
+                            <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">현재 상태 저장</h3>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="저장 이름 입력..."
-                                        value={saveName}
-                                        onChange={(e) => setSaveName(e.target.value)}
-                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                    />
-                                    <button
-                                        onClick={saveInstance}
-                                        disabled={!saveName}
-                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-                                    >
-                                        저장
-                                    </button>
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="저장할 이름을 입력하세요"
+                                            value={saveName}
+                                            onChange={(e) => setSaveName(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && saveInstance()}
+                                            className="flex-1 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                        />
+                                        <button
+                                            onClick={saveInstance}
+                                            disabled={!saveName.trim()}
+                                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
+                                        >
+                                            저장
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-white/30">현재 카드 배치와 설정을 저장합니다. 같은 이름이 있으면 덮어씁니다.</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">저장된 목록 불러오기</h3>
+                            {/* 저장 목록 */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">저장 목록</h3>
                                 <div className="space-y-2">
                                     {savedInstances.map(name => (
-                                        <div key={name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-colors">
-                                            <span className="font-medium text-white/90 pl-1">{name}</span>
+                                        <div key={name} className="group flex items-center justify-between p-3.5 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 hover:bg-white/[0.07] transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">B</div>
+                                                <span className="font-medium text-white/90">{name}</span>
+                                            </div>
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => loadInstance(name)}
-                                                    className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-medium transition-colors"
+                                                    className="px-3.5 py-1.5 bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold transition-all"
                                                 >
                                                     불러오기
                                                 </button>
                                                 <button
-                                                    onClick={() => deleteInstance(name)}
-                                                    className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 rounded-lg text-xs font-medium transition-colors"
+                                                    onClick={() => {
+                                                        if (window.confirm(`"${name}" 저장을 삭제하시겠습니까?`)) {
+                                                            deleteInstance(name)
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/25 text-red-400/70 hover:text-red-300 rounded-lg text-xs font-medium transition-all"
                                                 >
                                                     삭제
                                                 </button>
@@ -434,11 +379,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         </div>
                                     ))}
                                     {savedInstances.length === 0 && (
-                                        <div className="p-8 text-center text-white/30 italic border border-dashed border-white/10 rounded-xl">
-                                            저장된 인스턴스가 없습니다
+                                        <div className="flex flex-col items-center gap-2 py-10 text-white/20">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                                            <span className="text-sm">아직 저장된 항목이 없습니다</span>
                                         </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* 초기화 */}
+                            <div className="space-y-3 pt-2 border-t border-white/5">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">초기화</h3>
+                                {!confirmReset ? (
+                                    <button
+                                        onClick={() => setConfirmReset(true)}
+                                        className="w-full py-3 bg-white/5 hover:bg-red-500/10 text-white/50 hover:text-red-400 font-medium rounded-xl border border-white/10 hover:border-red-500/30 transition-all text-sm"
+                                    >
+                                        모든 카드 초기화
+                                    </button>
+                                ) : (
+                                    <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <p className="text-sm text-red-300 font-medium text-center">현재 카드를 모두 삭제하고 처음부터 시작합니다</p>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setConfirmReset(false)}
+                                                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-lg text-sm font-medium transition-all"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={handleSaveAndReset}
+                                                disabled={!saveName.trim()}
+                                                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-all"
+                                            >
+                                                저장 후 초기화
+                                            </button>
+                                            <button
+                                                onClick={handleDiscardAndReset}
+                                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-all"
+                                            >
+                                                바로 초기화
+                                            </button>
+                                        </div>
+                                        <p className="text-[11px] text-white/30 text-center">"저장 후 초기화"를 누르려면 먼저 위에서 저장 이름을 입력하세요</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
