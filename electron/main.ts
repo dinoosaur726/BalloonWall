@@ -442,7 +442,10 @@ ipcMain.on('check-for-update', () => {
 // ─── Feedback → GitHub Issue ───
 ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, data: { title: string; body: string }) => {
   const token = process.env.GH_TOKEN
-  if (!token) return { success: false, error: '인증 토큰이 없습니다' }
+  if (!token) {
+    dialog.showMessageBox({ message: '[DEBUG] 토큰이 비어있습니다' })
+    return { success: false, error: '인증 토큰이 없습니다' }
+  }
 
   try {
     const res = await fetch('https://api.github.com/repos/dinoosaur726/BalloonWall/issues', {
@@ -461,12 +464,14 @@ ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, da
     if (!res.ok) {
       const err = await res.text()
       console.error('[Feedback] Failed:', err)
-      return { success: false, error: '전송에 실패했습니다' }
+      dialog.showMessageBox({ message: `[DEBUG] API 에러 (${res.status}): ${err}` })
+      return { success: false, error: `전송 실패 (${res.status})` }
     }
 
     return { success: true }
   } catch (err: any) {
     console.error('[Feedback] Error:', err.message)
+    dialog.showMessageBox({ message: `[DEBUG] 네트워크 에러: ${err.message}` })
     return { success: false, error: err.message }
   }
 })
