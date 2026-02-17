@@ -393,6 +393,11 @@ app.whenReady().then(() => {
       })
     })
 
+    autoUpdater.on('update-not-available', () => {
+      console.log('[AutoUpdater] Already up to date')
+      win?.webContents.send('update-not-available')
+    })
+
     autoUpdater.on('download-progress', (progress: any) => {
       win?.webContents.send('update-progress', {
         percent: Math.round(progress.percent)

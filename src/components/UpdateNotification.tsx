@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { isElectron } from '../utils/env'
 
-type UpdateState = 'idle' | 'available' | 'downloading' | 'ready'
+type UpdateState = 'idle' | 'available' | 'downloading' | 'ready' | 'uptodate'
 
 interface UpdateInfo {
     version: string
@@ -30,12 +30,20 @@ export default function UpdateNotification() {
             setState('ready')
         }
 
+        const onNotAvailable = () => {
+            setState('uptodate')
+            setDismissed(false)
+            setTimeout(() => setDismissed(true), 3000)
+        }
+
         window.ipcRenderer.on('update-available', onAvailable)
+        window.ipcRenderer.on('update-not-available', onNotAvailable)
         window.ipcRenderer.on('update-progress', onProgress)
         window.ipcRenderer.on('update-downloaded', onDownloaded)
 
         return () => {
             window.ipcRenderer.off('update-available', onAvailable)
+            window.ipcRenderer.off('update-not-available', onNotAvailable)
             window.ipcRenderer.off('update-progress', onProgress)
             window.ipcRenderer.off('update-downloaded', onDownloaded)
         }
@@ -131,6 +139,18 @@ export default function UpdateNotification() {
                                 지금 설치
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Up to date */}
+                {state === 'uptodate' && (
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        </div>
+                        <p className="text-sm text-white/70">최신 버전입니다!</p>
                     </div>
                 )}
             </div>
