@@ -67,7 +67,7 @@ git tag v버전번호; git push origin main --tags
 
 ## �📝 라이센스
 
-Proprietary License — © 2026 다이노소어. All rights reserved.
+Proprietary License — © 2026 Dino_Labs. All rights reserved.
 
 본 소프트웨어의 무단 복제, 수정, 배포, 리버스 엔지니어링이 금지됩니다.
 자세한 내용은 [LICENSE](./LICENSE) 파일을 참조하세요.

@@ -16,6 +16,7 @@ import { Stack } from './components/Stack'
 import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
 import UpdateNotification from './components/UpdateNotification'
+import { LicenseGate } from './components/LicenseGate'
 import { isElectron } from './utils/env'
 import {
   REM,
@@ -256,123 +257,125 @@ function App() {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      {/* Custom Drag Handle — Electron only */}
-      {inElectron && (
-        <div
-          className="fixed top-0 left-0 w-full h-8 z-[9000] transition-opacity hover:bg-white/10 block cursor-move"
-          style={{ WebkitAppRegion: 'drag' }}
-        />
-      )}
-
-      {/* Settings Button — Electron only */}
-      {inElectron && (
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{ zIndex: 9999, WebkitAppRegion: 'no-drag' }}
-          className="fixed top-6 right-6 p-3 bg-black/40 text-white/70 rounded-full hover:bg-black/60 hover:text-white hover:scale-110 active:scale-95 transition-all pointer-events-auto backdrop-blur-md shadow-lg border border-white/5"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-      )}
-
-      {/* Settings Modal — Electron only */}
-      {inElectron && showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-
-      {/* Update Notification — Electron only */}
-      {inElectron && <UpdateNotification />}
-
-      {/* Main Typeset / Canvas */}
-      <div
-        ref={setCanvasRef}
-        className={`relative w-full h-full pointer-events-auto transition-colors duration-300 overflow-hidden ${getBackgroundClass()}`}
+    <LicenseGate>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
-        {Object.values(stacks).map(stack => {
-          const scale = stack.scale
+        {/* Custom Drag Handle — Electron only */}
+        {inElectron && (
+          <div
+            className="fixed top-0 left-0 w-full h-8 z-[9000] transition-opacity hover:bg-white/10 block cursor-move"
+            style={{ WebkitAppRegion: 'drag' }}
+          />
+        )}
 
-          return (
-            <Stack key={stack.id} id={stack.id} x={stack.x} y={stack.y} scale={scale} onScale={(delta) => {
-              updateStackScale(stack.id, delta)
-            }}>
-              {stack.cardIds.map((cardId, index) => {
-                const isGhost = activeId && (activeId === cardId || draggedGroupCards.includes(cardId))
+        {/* Settings Button — Electron only */}
+        {inElectron && (
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{ zIndex: 9999, WebkitAppRegion: 'no-drag' }}
+            className="fixed top-6 right-6 p-3 bg-black/40 text-white/70 rounded-full hover:bg-black/60 hover:text-white hover:scale-110 active:scale-95 transition-all pointer-events-auto backdrop-blur-md shadow-lg border border-white/5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15-.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        )}
 
+        {/* Settings Modal — Electron only */}
+        {inElectron && showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+        {/* Update Notification — Electron only */}
+        {inElectron && <UpdateNotification />}
+
+        {/* Main Typeset / Canvas */}
+        <div
+          ref={setCanvasRef}
+          className={`relative w-full h-full pointer-events-auto transition-colors duration-300 overflow-hidden ${getBackgroundClass()}`}
+        >
+          {Object.values(stacks).map(stack => {
+            const scale = stack.scale
+
+            return (
+              <Stack key={stack.id} id={stack.id} x={stack.x} y={stack.y} scale={scale} onScale={(delta) => {
+                updateStackScale(stack.id, delta)
+              }}>
+                {stack.cardIds.map((cardId, index) => {
+                  const isGhost = activeId && (activeId === cardId || draggedGroupCards.includes(cardId))
+
+                  const cardData = cards[cardId]
+                  if (!cardData) return null
+
+                  const dynamicMargin = index > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
+                  const zIndex = 50 - index
+                  const shouldHideImage = index > 0
+
+                  return (
+                    <div
+                      key={cardId}
+                      className={isGhost ? "opacity-0" : "opacity-100"}
+                      style={{
+                        marginTop: dynamicMargin,
+                        zIndex: zIndex
+                      }}
+                    >
+                      <Card
+                        {...cardData}
+                        index={index}
+                        scale={scale}
+                        hideImage={shouldHideImage}
+                      />
+                    </div>
+                  )
+                })}
+              </Stack>
+            )
+          })}
+        </div>
+
+        <DragOverlay zIndex={10000} dropAnimation={null}>
+          {activeId && (
+            <div
+              className="flex flex-col items-center pb-4 border-2 border-transparent"
+              style={{
+                marginTop: `-${(draggedGroupCards.length - 1) * STEP_REM * (Object.values(stacks).find(s => s.cardIds.includes(activeId))?.scale || 1)}rem`
+              }}
+            >
+              {draggedGroupCards.map((cardId, i) => {
                 const cardData = cards[cardId]
                 if (!cardData) return null
+                const sourceStack = Object.values(stacks).find(s => s.cardIds.includes(activeId))
+                const scale = sourceStack ? sourceStack.scale : 1
 
-                const dynamicMargin = index > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
-                const zIndex = 50 - index
-                const shouldHideImage = index > 0
+                const dynamicMargin = i > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
 
                 return (
                   <div
                     key={cardId}
-                    className={isGhost ? "opacity-0" : "opacity-100"}
                     style={{
                       marginTop: dynamicMargin,
-                      zIndex: zIndex
+                      zIndex: 50 - i
                     }}
                   >
                     <Card
                       {...cardData}
-                      index={index}
+                      index={i}
                       scale={scale}
-                      hideImage={shouldHideImage}
+                      isOverlay
+                      hideImage={i > 0}
                     />
                   </div>
                 )
               })}
-            </Stack>
-          )
-        })}
-      </div>
-
-      <DragOverlay zIndex={10000} dropAnimation={null}>
-        {activeId && (
-          <div
-            className="flex flex-col items-center pb-4 border-2 border-transparent"
-            style={{
-              marginTop: `-${(draggedGroupCards.length - 1) * STEP_REM * (Object.values(stacks).find(s => s.cardIds.includes(activeId))?.scale || 1)}rem`
-            }}
-          >
-            {draggedGroupCards.map((cardId, i) => {
-              const cardData = cards[cardId]
-              if (!cardData) return null
-              const sourceStack = Object.values(stacks).find(s => s.cardIds.includes(activeId))
-              const scale = sourceStack ? sourceStack.scale : 1
-
-              const dynamicMargin = i > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
-
-              return (
-                <div
-                  key={cardId}
-                  style={{
-                    marginTop: dynamicMargin,
-                    zIndex: 50 - i
-                  }}
-                >
-                  <Card
-                    {...cardData}
-                    index={i}
-                    scale={scale}
-                    isOverlay
-                    hideImage={i > 0}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    </LicenseGate>
   )
 }
 export default App

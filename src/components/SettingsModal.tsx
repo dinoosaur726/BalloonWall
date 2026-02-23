@@ -21,13 +21,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const [saveName, setSaveName] = useState('')
     const [savedInstances, setSavedInstances] = useState<string[]>([])
 
+    // License Management
+    const [licenseEmail, setLicenseEmail] = useState('')
+    const [licenseActivated, setLicenseActivated] = useState(false)
+    const [deactivating, setDeactivating] = useState(false)
     useEffect(() => {
         setLocalSettings(prev => ({
             ...settings,
             design: settings.design || prev.design || { showNickname: true, showAmount: true }
         }))
         updateSavedInstances()
+
+        // License status check
+        if (isElectron()) {
+            window.ipcRenderer.invoke('get-license-status').then((result: any) => {
+                setLicenseActivated(result.isActivated)
+                setLicenseEmail(result.email || '')
+            }).catch(() => { })
+        }
     }, [settings])
+
+    const handleDeactivateLicense = async () => {
+        if (!window.confirm('라이센스를 해제하시겠습니까?\n다른 기기에서 다시 인증할 수 있습니다.')) return
+        setDeactivating(true)
+        try {
+            await window.ipcRenderer.invoke('deactivate-license')
+            setLicenseActivated(false)
+            setLicenseEmail('')
+            // Reload the app to show license gate
+            window.location.reload()
+        } catch (err) {
+            console.error('Deactivate failed:', err)
+        } finally {
+            setDeactivating(false)
+        }
+    }
 
     const updateSavedInstances = () => {
         const keys = Object.keys(localStorage).filter(k => k.startsWith('BW_SAVE_'))
@@ -168,10 +196,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                                     <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
                                         <div className="col-span-2">
-                                            <h4 className="text-xs font-semibold text-blue-400 mb-2">시그니처 풍선 (SOOP/AfreecaTV)</h4>
+                                            <h4 className="text-xs font-semibold text-blue-400 mb-2">시그니처 풍선 (SOOP)</h4>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-medium text-white/60 mb-1.5">BJ 아이디</label>
+                                            <label className="block text-xs font-medium text-white/60 mb-1.5">스트리머 아이디</label>
                                             <input
                                                 type="text"
                                                 placeholder="sooplive ID"
@@ -191,7 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                             />
                                         </div>
                                         <div className="col-span-2 text-[11px] text-white/30 leading-relaxed">
-                                            * BJ 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
+                                            * 스트리머 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
                                             자동으로 방송국의 시그니처 이미지를 불러옵니다.
                                         </div>
                                     </div>
@@ -451,7 +479,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-white/60">제작자</span>
-                                        <span className="text-sm font-medium text-white">다이노소어</span>
+                                        <span className="text-sm font-medium text-white">Dino_Labs</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-white/60">버전</span>
@@ -470,11 +498,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
+                            {/* License Info */}
+                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">라이센스</h3>
+                                {licenseActivated ? (
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-white/60">상태</span>
+                                            <span className="text-sm font-medium text-emerald-400">✓ 활성화됨</span>
+                                        </div>
+                                        {licenseEmail && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-white/60">이메일</span>
+                                                <span className="text-sm font-mono text-white/80">{licenseEmail}</span>
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={handleDeactivateLicense}
+                                            disabled={deactivating}
+                                            className="w-full mt-2 py-2 bg-white/5 hover:bg-red-500/10 text-white/40 hover:text-red-400 text-xs font-medium rounded-lg border border-white/10 hover:border-red-500/20 transition-all disabled:opacity-50"
+                                        >
+                                            {deactivating ? '해제 중...' : '라이센스 해제'}
+                                        </button>
+                                        <p className="text-[11px] text-white/25 text-center">해제 후 다른 기기에서 재인증할 수 있습니다</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-white/60">상태</span>
+                                        <span className="text-sm font-medium text-white/40">미인증</span>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Copyright & License */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
                                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">저작권</h3>
                                 <p className="text-xs text-white/50 leading-relaxed">
-                                    © {new Date().getFullYear()} 다이노소어. All rights reserved.
+                                    © {new Date().getFullYear()} Dino_Labs. All rights reserved.
                                 </p>
                                 <p className="text-xs text-white/50 leading-relaxed">
                                     본 소프트웨어는 독점 라이센스에 따라 보호됩니다.
