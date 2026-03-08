@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '../store'
+import appIcon from '../../build/icon.png'
 import { isElectron } from '../utils/env'
 import packageJson from '../../package.json'
 
@@ -21,41 +22,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const [saveName, setSaveName] = useState('')
     const [savedInstances, setSavedInstances] = useState<string[]>([])
 
-    // License Management
-    const [licenseEmail, setLicenseEmail] = useState('')
-    const [licenseActivated, setLicenseActivated] = useState(false)
-    const [deactivating, setDeactivating] = useState(false)
     useEffect(() => {
         setLocalSettings(prev => ({
             ...settings,
             design: settings.design || prev.design || { showNickname: true, showAmount: true }
         }))
         updateSavedInstances()
-
-        // License status check
-        if (isElectron()) {
-            window.ipcRenderer.invoke('get-license-status').then((result: any) => {
-                setLicenseActivated(result.isActivated)
-                setLicenseEmail(result.email || '')
-            }).catch(() => { })
-        }
     }, [settings])
-
-    const handleDeactivateLicense = async () => {
-        if (!window.confirm('라이센스를 해제하시겠습니까?\n다른 기기에서 다시 인증할 수 있습니다.')) return
-        setDeactivating(true)
-        try {
-            await window.ipcRenderer.invoke('deactivate-license')
-            setLicenseActivated(false)
-            setLicenseEmail('')
-            // Reload the app to show license gate
-            window.location.reload()
-        } catch (err) {
-            console.error('Deactivate failed:', err)
-        } finally {
-            setDeactivating(false)
-        }
-    }
 
     const updateSavedInstances = () => {
         const keys = Object.keys(localStorage).filter(k => k.startsWith('BW_SAVE_'))
@@ -263,6 +236,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Ad Balloon Automation Settings */}
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-sm font-medium text-white/90">애드벌룬 자동 카드 생성</div>
+                                            <div className="text-xs text-white/50 mt-0.5">
+                                                {localSettings.autoAddAd ? '애드벌룬 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setLocalSettings({ ...localSettings, autoAddAd: !localSettings.autoAddAd })}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddAd !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddAd !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    {localSettings.autoAddAd !== false && (
+                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
+                                                애드벌룬 최소 금액 설정 (OO개 이상만 제작)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    value={localSettings.minAmountAd !== undefined ? localSettings.minAmountAd : 0}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountAd: parseInt(e.target.value) || 0 })}
+                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                />
+                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -324,12 +332,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         {history && history.map((item) => (
                                             <tr key={item.id} className="hover:bg-white/5 transition-colors">
                                                 <td className="px-4 py-3 text-white/40">{new Date(item.timestamp).toLocaleTimeString()}</td>
-                                                <td className="px-4 py-3 font-medium">{item.nickname}</td>
-                                                <td className="px-4 py-3 text-blue-400 font-bold">{item.amount.toLocaleString()}</td>
+                                                <td className="px-4 py-3 font-medium">
+                                                    <span className="flex items-center gap-2">
+                                                        {item.type === 'Ad' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 w-fit">애드벌룬</span>
+                                                        )}
+                                                        {item.nickname}
+                                                    </span>
+                                                </td>
+                                                <td className={`px-4 py-3 font-bold ${item.type === 'Ad' ? 'text-emerald-400' : 'text-blue-400'}`}>{item.amount.toLocaleString()}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <button
                                                         onClick={() => {
-                                                            addCard(item.nickname, item.amount)
+                                                            addCard(item.type || 'Normal', item.nickname, item.amount)
                                                             onClose()
                                                         }}
                                                         className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-md text-xs font-medium transition-colors"
@@ -463,12 +478,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         <div className="space-y-6">
                             {/* App Info */}
                             <div className="text-center space-y-3 py-4">
-                                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 2C8 2 6 5 6 8c0 4 6 8 6 8s6-4 6-8c0-3-2-6-6-6z" />
-                                        <line x1="12" y1="16" x2="12" y2="22" />
-                                    </svg>
-                                </div>
+                                <img src={appIcon} alt="App Icon" className="w-20 h-20 mx-auto rounded-2xl shadow-lg shadow-purple-500/20" />
                                 <h3 className="text-xl font-bold text-white">Warudo 풍벽지</h3>
                                 <p className="text-sm text-white/40">버전 {packageJson.version}</p>
                             </div>
@@ -498,37 +508,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* License Info */}
-                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
-                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">라이센스</h3>
-                                {licenseActivated ? (
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-white/60">상태</span>
-                                            <span className="text-sm font-medium text-emerald-400">✓ 활성화됨</span>
-                                        </div>
-                                        {licenseEmail && (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-white/60">이메일</span>
-                                                <span className="text-sm font-mono text-white/80">{licenseEmail}</span>
-                                            </div>
-                                        )}
-                                        <button
-                                            onClick={handleDeactivateLicense}
-                                            disabled={deactivating}
-                                            className="w-full mt-2 py-2 bg-white/5 hover:bg-red-500/10 text-white/40 hover:text-red-400 text-xs font-medium rounded-lg border border-white/10 hover:border-red-500/20 transition-all disabled:opacity-50"
-                                        >
-                                            {deactivating ? '해제 중...' : '라이센스 해제'}
-                                        </button>
-                                        <p className="text-[11px] text-white/25 text-center">해제 후 다른 기기에서 재인증할 수 있습니다</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-white/60">상태</span>
-                                        <span className="text-sm font-medium text-white/40">미인증</span>
-                                    </div>
-                                )}
-                            </div>
+
 
                             {/* Copyright & License */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">

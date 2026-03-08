@@ -14,6 +14,7 @@ interface CardProps {
     nickname: string
     amount: number
     imageUrl: string
+    type?: 'Normal' | 'Ad'
     textColor?: string
     index: number // logic index in column
     isOverlay?: boolean
@@ -28,6 +29,7 @@ export const Card: React.FC<CardProps> = ({
     nickname,
     amount,
     imageUrl,
+    type,
     index,
     isOverlay,
     childCards,
@@ -135,7 +137,7 @@ export const Card: React.FC<CardProps> = ({
                             fontWeight: 800
                         }}
                     >
-                        별풍선 {amount.toLocaleString()}개
+                        {type === 'Ad' ? `애드벌룬 ${amount.toLocaleString()}개` : `별풍선 ${amount.toLocaleString()}개`}
                     </div>
                 )}
             </div>

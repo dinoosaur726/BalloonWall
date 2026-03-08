@@ -11,6 +11,7 @@ import {
 
 interface CardData {
     id: string
+    type?: 'Normal' | 'Ad'
     nickname: string
     amount: number
     imageUrl: string
@@ -42,6 +43,8 @@ interface Settings {
     // New Automation Settings
     autoAdd: boolean
     minAmount: number
+    autoAddAd: boolean
+    minAmountAd: number
     // Design Settings
     design: {
         showNickname: boolean
@@ -175,8 +178,8 @@ interface GameState {
     settings: Settings
 
     // Actions
-    handleDonation: (nickname: string, amount: number) => void // New Action
-    addCard: (nickname: string, amount: number) => void
+    handleDonation: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void // New Action
+    addCard: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void
 
     // Stack Operations
     createStack: (cardIds: string[], x: number, y: number) => void
@@ -190,7 +193,7 @@ interface GameState {
     moveStack: (stackId: string, x: number, y: number) => void
 
     // History
-    history: { id: string, nickname: string, amount: number, timestamp: number }[]
+    history: { id: string, type?: 'Normal' | 'Ad', nickname: string, amount: number, timestamp: number }[]
     // Actions
     loadState: (state: GameState) => void
     resetState: () => void
@@ -214,18 +217,21 @@ export const useStore = create<GameState>((set, get) => ({
         signatureBalloons: '',
         autoAdd: true,
         minAmount: 0,
+        autoAddAd: true,
+        minAmountAd: 0,
         design: {
             showNickname: true,
             showAmount: true
         }
     },
 
-    handleDonation: (nickname, amount) => {
+    handleDonation: (type, nickname, amount) => {
         const { settings, addCard } = get()
 
         // 1. Always add to History (Req: History generates around the request)
         const historyItem = {
             id: uuidv4(),
+            type,
             nickname,
             amount,
             timestamp: Date.now()
@@ -233,15 +239,18 @@ export const useStore = create<GameState>((set, get) => ({
         set(state => ({ history: [historyItem, ...state.history] }))
 
         // 2. Logic for Auto-Creation
-        if (settings.autoAdd) {
-            // Check Minimum Amount
-            if (amount >= settings.minAmount) {
-                addCard(nickname, amount)
+        if (type === 'Ad') {
+            if (settings.autoAddAd && amount >= settings.minAmountAd) {
+                addCard(type, nickname, amount)
+            }
+        } else {
+            if (settings.autoAdd && amount >= settings.minAmount) {
+                addCard(type, nickname, amount)
             }
         }
     },
 
-    addCard: async (nickname, amount) => {
+    addCard: async (type, nickname, amount) => {
         const { settings } = get()
 
         let imageUrl = 'default'
@@ -262,7 +271,7 @@ export const useStore = create<GameState>((set, get) => ({
             useGenerator = true
         }
 
-        if (useGenerator) {
+        if (useGenerator || type === 'Ad') {
             try {
                 const sigConfig = {
                     streamerId: settings.streamerId,
@@ -270,7 +279,7 @@ export const useStore = create<GameState>((set, get) => ({
                 };
 
                 // Implicitly checks signature/external logic inside generator
-                imageUrl = await BalloonGenerator.generate(nickname, amount, sigConfig)
+                imageUrl = await BalloonGenerator.generate(nickname, amount, sigConfig, type)
             } catch (err) {
                 console.error("Generator failed, falling back", err)
             }
@@ -278,6 +287,7 @@ export const useStore = create<GameState>((set, get) => ({
 
         const newCard: CardData = {
             id: uuidv4(),
+            type,
             nickname,
             amount,
             imageUrl,
@@ -294,7 +304,7 @@ export const useStore = create<GameState>((set, get) => ({
             if (stack.cardIds.length > 0) {
                 const firstCardId = stack.cardIds[0]
                 const firstCard = get().cards[firstCardId]
-                if (firstCard && firstCard.amount === amount) {
+                if (firstCard && firstCard.amount === amount && firstCard.type === type) {
                     // Check if adding a card would go off-screen
                     const nextY = stack.y - (STEP_REM * REM * stack.scale)
                     if (nextY < 50) {
@@ -657,10 +667,11 @@ export const useStore = create<GameState>((set, get) => ({
 
             const isSignature = sigConfig.streamerId && sigConfig.signatureBalloons.includes(card.amount);
             const isPreset = ['default', 'bronze', 'silver', 'gold'].includes(targetImageUrl)
+            const isAd = card.type === 'Ad';
 
-            if (isPreset || isSignature) {
+            if (isPreset || isSignature || isAd) {
                 try {
-                    const genUrl = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig)
+                    const genUrl = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig, card.type || 'Normal')
                     updates[card.id] = { imageUrl: genUrl }
                 } catch (e) {
                     console.error(`Failed to refresh card ${card.id}`, e)

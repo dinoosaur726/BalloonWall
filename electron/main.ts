@@ -5,8 +5,6 @@ import fs from 'node:fs'
 import { WebSocketServer, WebSocket } from 'ws'
 import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
-import { machineIdSync } from 'node-machine-id'
-
 // Standard CJS require for Electron
 const electron = require('electron')
 const { app, ipcMain, BrowserWindow, dialog } = electron
@@ -45,12 +43,8 @@ interface Settings {
   signatureBalloons?: string
   autoAdd?: boolean
   minAmount?: number
-}
-
-interface LicenseData {
-  licenseKey: string
-  machineId: string
-  licenseEmail: string
+  autoAddAd?: boolean
+  minAmountAd?: number
 }
 
 const store = new Store<Settings>({
@@ -60,24 +54,11 @@ const store = new Store<Settings>({
     streamerId: '',
     signatureBalloons: '',
     autoAdd: true,
-    minAmount: 0
+    minAmount: 0,
+    autoAddAd: true,
+    minAmountAd: 0
   }
 })
-
-// Separate encrypted store for license data (won't break existing beta users' config)
-const licenseStore = new Store<LicenseData>({
-  name: 'license',
-  encryptionKey: 'bw_enc_k3y_2026',
-  defaults: {
-    licenseKey: '',
-    machineId: '',
-    licenseEmail: ''
-  }
-})
-
-// ─── Gumroad License ───
-const GUMROAD_PRODUCT_ID = 'jmJMJ3HrAyedbaf5mLYcQQ==' // TODO: Gumroad 상품 생성 후 교체
-const MAX_LICENSE_USES = 1 // 1대 기기 제한
 
 // ─── MIME Type Helper ───
 const MIME_MAP: Record<string, string> = {
@@ -235,12 +216,25 @@ function startWebSocketServer(port: number) {
           // Not JSON, try legacy format
         }
 
-        // Legacy Format: "Nickname/Amount"
+        // Formats:
+        // 1. New: "{balloontype}/{Nickname}/{amount}"
+        // 2. Legacy: "{Nickname}/{amount}" -> Treat as "Normal"
         if (msgStr.includes('/')) {
-          const [nickname, amountStr] = msgStr.split('/')
-          const amount = parseInt(amountStr, 10)
-          if (!isNaN(amount) && win) {
-            win.webContents.send('new-donation', { nickname, amount })
+          const parts = msgStr.split('/')
+          if (parts.length === 3) {
+            const [typeStr, nickname, amountStr] = parts
+            const amount = parseInt(amountStr, 10)
+            // Ensure type is 'Normal' or 'Ad'
+            const type = typeStr === 'Ad' ? 'Ad' : 'Normal'
+            if (!isNaN(amount) && win) {
+              win.webContents.send('new-donation', { type, nickname, amount })
+            }
+          } else if (parts.length === 2) {
+            const [nickname, amountStr] = parts
+            const amount = parseInt(amountStr, 10)
+            if (!isNaN(amount) && win) {
+              win.webContents.send('new-donation', { type: 'Normal', nickname, amount })
+            }
           }
         }
       })
@@ -490,145 +484,5 @@ ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, da
   } catch (err: any) {
     console.error('[Feedback] Error:', err.message)
     return { success: false, error: err.message }
-  }
-})
-
-// ─── Gumroad License Verification ───
-ipcMain.handle('get-license-status', () => {
-  const licenseKey = licenseStore.get('licenseKey')
-  const storedMachineId = licenseStore.get('machineId')
-  const licenseEmail = licenseStore.get('licenseEmail')
-  const currentMachineId = machineIdSync()
-
-  return {
-    isActivated: !!(licenseKey && storedMachineId === currentMachineId),
-    licenseKey: licenseKey || '',
-    email: licenseEmail || '',
-    machineId: storedMachineId || '',
-    currentMachineId
-  }
-})
-
-ipcMain.handle('verify-license', async (_event: any, licenseKey: string) => {
-  try {
-    const currentMachineId = machineIdSync()
-
-    // Step 1: Verify without incrementing to check current uses
-    const checkRes = await fetch('https://api.gumroad.com/v2/licenses/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        product_id: GUMROAD_PRODUCT_ID,
-        license_key: licenseKey,
-        increment_uses_count: 'false'
-      })
-    })
-
-    if (!checkRes.ok) {
-      const errData = await checkRes.json().catch(() => ({}))
-      return { success: false, error: errData.message || '유효하지 않은 라이센스 키입니다.' }
-    }
-
-    const checkData = await checkRes.json()
-
-    // Check if refunded or disputed
-    if (checkData.purchase?.refunded) {
-      return { success: false, error: '환불된 라이센스입니다.' }
-    }
-    if (checkData.purchase?.disputed) {
-      return { success: false, error: '분쟁 중인 라이센스입니다.' }
-    }
-
-    // Check if already activated on this machine
-    const storedMachineId = licenseStore.get('machineId')
-    if (storedMachineId === currentMachineId && licenseStore.get('licenseKey') === licenseKey) {
-      // Same machine, same key — already activated, just return success
-      return {
-        success: true,
-        email: checkData.purchase?.email || '',
-        uses: checkData.uses
-      }
-    }
-
-    // Step 2: Check uses count for device limit
-    if (checkData.uses >= MAX_LICENSE_USES) {
-      return {
-        success: false,
-        error: `이미 다른 기기에서 사용 중입니다. (${checkData.uses}/${MAX_LICENSE_USES})\n기존 기기에서 라이센스를 해제하거나, Gumroad에 문의하세요.`
-      }
-    }
-
-    // Step 3: Activate — increment uses count
-    const activateRes = await fetch('https://api.gumroad.com/v2/licenses/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        product_id: GUMROAD_PRODUCT_ID,
-        license_key: licenseKey,
-        increment_uses_count: 'true'
-      })
-    })
-
-    if (!activateRes.ok) {
-      return { success: false, error: '인증 처리 중 오류가 발생했습니다.' }
-    }
-
-    const activateData = await activateRes.json()
-
-    // Save to license store
-    licenseStore.set('licenseKey', licenseKey)
-    licenseStore.set('machineId', currentMachineId)
-    licenseStore.set('licenseEmail', activateData.purchase?.email || '')
-
-    console.log(`[License] Activated: ${activateData.purchase?.email}, uses: ${activateData.uses}`)
-
-    return {
-      success: true,
-      email: activateData.purchase?.email || '',
-      uses: activateData.uses
-    }
-  } catch (err: any) {
-    console.error('[License] Verify error:', err.message)
-    return { success: false, error: '네트워크 오류가 발생했습니다. 인터넷 연결을 확인하세요.' }
-  }
-})
-
-ipcMain.handle('deactivate-license', async () => {
-  const licenseKey = licenseStore.get('licenseKey')
-  if (!licenseKey) {
-    return { success: false, error: '활성화된 라이센스가 없습니다.' }
-  }
-
-  try {
-    // Decrement uses count on Gumroad (requires PUT + access_token)
-    const res = await fetch('https://api.gumroad.com/v2/licenses/decrement_uses_count', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        product_id: GUMROAD_PRODUCT_ID,
-        license_key: licenseKey,
-        access_token: 'm5uOYCS05Tt9fen9tb_Y0QDL-dBmuW3YHoVQP6V4PNk' // TODO: Gumroad Settings → Advanced → Application → Access Token
-      })
-    })
-
-    if (!res.ok) {
-      console.error('[License] Decrement failed:', await res.text())
-      // Still clear local data even if decrement fails
-    }
-
-    // Clear local license data
-    licenseStore.set('licenseKey', '')
-    licenseStore.set('machineId', '')
-    licenseStore.set('licenseEmail', '')
-
-    console.log('[License] Deactivated')
-    return { success: true }
-  } catch (err: any) {
-    console.error('[License] Deactivate error:', err.message)
-    // Clear local data anyway — user should be able to deactivate even offline-ish
-    licenseStore.set('licenseKey', '')
-    licenseStore.set('machineId', '')
-    licenseStore.set('licenseEmail', '')
-    return { success: true }
   }
 })

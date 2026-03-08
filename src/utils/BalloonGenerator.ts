@@ -91,19 +91,20 @@ export class BalloonGenerator {
         });
     }
 
-    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[] }): Promise<string> {
+    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<string> {
         let balloonSrc = '';
         let isExternal = false;
+        let isAd = type === 'Ad';
 
-        // 1. Signature Check
-        if (sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
+        // 1. Signature Check (Only for Normal balloons)
+        if (!isAd && sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
             balloonSrc = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
             isExternal = true;
             this.log(`Attempting to load signature balloon: ${balloonSrc}`);
         }
 
-        // 2. Standard External Check (If not signature)
-        if (!isExternal) {
+        // 2. Standard External Check (If not signature and Normal)
+        if (!isExternal && !isAd) {
             // Try the standard external URL first
             const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
             try {
@@ -115,7 +116,13 @@ export class BalloonGenerator {
             }
         }
 
-        const bgSrc = 'assets/n_b.png';
+        // 3. Ad Balloon External Check
+        if (isAd) {
+            balloonSrc = `https://static.file.sooplive.co.kr/adballoon/ceremony/mobile_${amount}.png`;
+            isExternal = true;
+        }
+
+        const bgSrc = isAd ? 'assets/n_b_ad.png' : 'assets/n_b.png';
 
         try {
             let balloonImg: HTMLImageElement;
@@ -126,7 +133,9 @@ export class BalloonGenerator {
 
             // Load Balloon
             try {
-                if (isExternal && !sigConfig?.signatureBalloons.includes(amount)) {
+                if (isAd) {
+                    balloonImg = await this.loadImage(balloonSrc);
+                } else if (isExternal && !sigConfig?.signatureBalloons.includes(amount)) {
                     // For standard external, we attempt load.
                     balloonImg = await this.loadImage(balloonSrc);
                 } else if (isExternal) {
@@ -140,8 +149,13 @@ export class BalloonGenerator {
             } catch (error) {
                 this.log(`External load failed for ${balloonSrc}. Falling back.`);
 
-                // If it was Signature, try Standard External
-                if (sigConfig?.signatureBalloons.includes(amount)) {
+                if (isAd) {
+                    // Ad fallback
+                    balloonSrc = 'assets/ad.png';
+                    balloonImg = await this.loadImage(balloonSrc);
+                    isExternal = false;
+                } else if (sigConfig?.signatureBalloons.includes(amount)) {
+                    // If it was Signature, try Standard External
                     const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
                     try {
                         balloonImg = await this.loadImage(standardUrl);
@@ -175,8 +189,8 @@ export class BalloonGenerator {
             // 2. Draw Background Panel at (0, balloonHeight)
             ctx.drawImage(bgImg, 0, balloonImg.height);
 
-            // 3. Draw Amount on Balloon (ONLY IF NOT EXTERNAL)
-            if (!isExternal) {
+            // 3. Draw Amount on Balloon (ONLY IF NOT EXTERNAL AND NOT AD)
+            if (!isExternal && !isAd) {
                 await this.loadFont();
 
                 // Python: d_p_x centered on balloon, y=120
@@ -212,7 +226,7 @@ export class BalloonGenerator {
             ctx.font = `20px "${this.fontName}", sans-serif`;
 
             const line1 = `${nickname}님`;
-            const line2 = `별풍선 ${amount.toLocaleString()}개`;
+            const line2 = isAd ? `애드벌룬 ${amount.toLocaleString()}개` : `별풍선 ${amount.toLocaleString()}개`;
 
             const bgCenterX = bgImg.width / 2;
 
@@ -220,13 +234,16 @@ export class BalloonGenerator {
             const textY1_Local = (bgImg.height - estimatedTextHeight) / 4;
             const textY1_Global = balloonImg.height + textY1_Local;
 
-            ctx.fillStyle = '#ff2f00';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+
+            ctx.fillStyle = isAd ? 'white' : '#ff2f00';
             ctx.fillText(line1, bgCenterX, textY1_Global);
 
             // Line 2
             const textY2_Global = textY1_Global + estimatedTextHeight + 5;
 
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = isAd ? '#28e3b8' : 'black';
             ctx.fillText(line2, bgCenterX, textY2_Global);
 
             return canvas.toDataURL('image/png');

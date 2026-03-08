@@ -16,7 +16,6 @@ import { Stack } from './components/Stack'
 import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
 import UpdateNotification from './components/UpdateNotification'
-import { LicenseGate } from './components/LicenseGate'
 import { isElectron } from './utils/env'
 import {
   REM,
@@ -70,9 +69,9 @@ function App() {
         if (savedSettings) initSettings(savedSettings)
       }).catch(err => console.error(err))
 
-      const handleNewDonation = (_event: any, data: { nickname: string, amount: number }) => {
-        window.ipcRenderer.send('log', `[App] Received donation: ${data.nickname}/${data.amount}`);
-        handleDonation(data.nickname, data.amount)
+      const handleNewDonation = (_event: any, data: { type: 'Normal' | 'Ad', nickname: string, amount: number }) => {
+        window.ipcRenderer.send('log', `[App] Received donation: ${data.type}/${data.nickname}/${data.amount}`);
+        handleDonation(data.type, data.nickname, data.amount)
       }
 
       // Defensive: Remove any existing listeners first
@@ -257,7 +256,7 @@ function App() {
   }
 
   return (
-    <LicenseGate>
+    <>
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
@@ -375,7 +374,7 @@ function App() {
           )}
         </DragOverlay>
       </DndContext>
-    </LicenseGate>
+    </>
   )
 }
 export default App
