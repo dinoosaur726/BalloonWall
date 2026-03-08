@@ -483,6 +483,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 <p className="text-sm text-white/40">버전 {packageJson.version}</p>
                             </div>
 
+                            {/* Streamer Profile */}
+                            {(settings.streamerNameProfile || settings.streamerUrlProfile) && (
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                    <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">프로필</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-white/60">스트리머명</span>
+                                            <span className="text-sm font-medium text-white">{settings.streamerNameProfile}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-white/60">방송국 주소</span>
+                                            <a href={settings.streamerUrlProfile} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors truncate max-w-[200px]">
+                                                {settings.streamerUrlProfile}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div className="pt-3 mt-3 border-t border-white/5 flex justify-end">
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm('프로필 정보를 삭제하고 다시 처음부터 설정하시겠습니까?')) {
+                                                    const newSettings = {
+                                                        ...useStore.getState().settings,
+                                                        streamerNameProfile: '',
+                                                        streamerUrlProfile: '',
+                                                        hasCompletedWelcome: false
+                                                    }
+                                                    setSettings(newSettings)
+                                                    if (isElectron()) {
+                                                        window.ipcRenderer.invoke('set-settings', newSettings)
+                                                    }
+                                                    onClose()
+                                                }
+                                            }}
+                                            className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-all"
+                                        >
+                                            정보 초기화
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Creator */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
                                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">제작 정보</h3>
@@ -508,25 +549,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-
-
-                            {/* Copyright & License */}
+                            {/* Third-Party Assets / Copyright */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
-                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">저작권</h3>
-                                <p className="text-xs text-white/50 leading-relaxed">
-                                    © {new Date().getFullYear()} Dino_Labs. All rights reserved.
+                                <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">저작권 및 서드파티 에셋</h3>
+                                <p className="text-[12px] text-white/60 leading-relaxed">
+                                    본 프로그램(Warudo 풍벽지)의 소스코드, 구동 방식, 고유 UI 및 핵심 로직에 대한 저작권은 전적으로 <strong>Dino_Labs</strong>에 있습니다. 무단 복제 및 리버스 엔지니어링은 엄격히 금지됩니다.
                                 </p>
-                                <p className="text-xs text-white/50 leading-relaxed">
-                                    본 소프트웨어는 독점 라이센스에 따라 보호됩니다.
-                                    무단 복제, 수정, 배포, 리버스 엔지니어링 및 2차 저작물 생성이 엄격히 금지됩니다.
-                                    위반 시 관련 법률에 따라 민·형사상 책임을 질 수 있습니다.
+                                <p className="text-[12px] text-white/50 leading-relaxed">
+                                    다만, 프로그램 내에서 동적으로 로드되어 표시되는 <strong>스트리머 시그니쳐 별풍선, 애드벌룬, 기본 별풍선 등 일부 이미지 에셋</strong>의 모든 권리 및 저작권은 <strong>SOOP Co., Ltd.(주식회사 숲)</strong> 및 스트리머 혹은 해당 콘텐츠 원작자에게 귀속됩니다.
+                                </p>
+                                <p className="text-[11px] text-white/40 leading-relaxed">
+                                    해당 서드파티 에셋에 대해 본 소프트웨어는 어떠한 소유권도 주장하지 않으며, 앱 기능 구현을 위해 외부 링크를 통해서만 로드됩니다.
                                 </p>
                             </div>
 
                             {/* Warning */}
                             <div className="p-4 bg-red-500/5 rounded-xl border border-red-500/10">
                                 <p className="text-[11px] text-red-400/70 leading-relaxed text-center">
-                                    ⚠️ 본 프로그램의 소스코드, 스크립트 및 에셋의 무단 사용·편집·재배포는 법적 조치의 대상이 됩니다.
+                                    ⚠️ 본 프로그램의 소스코드 및 구동 방식에 대한 무단 복제·재배포는 법적 조치의 대상이 됩니다.
                                 </p>
                             </div>
                         </div>
@@ -561,6 +601,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     )
 }
 
+const FEEDBACK_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYgwk9uACllB1Zv3ViFKJ3MbTRTIFOc2HWaeLtxcxvy4tvVvKFmP6489zw7ZNPItl5/exec'
+
 function FeedbackTab() {
     const [category, setCategory] = useState('bug')
     const [title, setTitle] = useState('')
@@ -578,11 +620,22 @@ function FeedbackTab() {
         setStatus('sending')
 
         const categoryLabel = categories.find(c => c.id === category)?.label || category
-        const body = `**카테고리**: ${categoryLabel}\n\n${message}`
 
         try {
-            const result = await window.ipcRenderer.invoke('submit-feedback', { title: title.trim(), body })
-            if (result.success) {
+            const response = await fetch(FEEDBACK_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    category: categoryLabel,
+                    title: title.trim(), 
+                    body: message.trim(),
+                    token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz" 
+                }),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                }
+            })
+
+            if (response.ok) {
                 setStatus('sent')
                 setTitle('')
                 setMessage('')
@@ -661,7 +714,7 @@ function FeedbackTab() {
             </button>
 
             <p className="text-[11px] text-white/25 text-center">
-                피드백은 개발팀에게 직접 전달됩니다
+                피드백은 구글 시트로 안전하게 전송됩니다
             </p>
         </div>
     )

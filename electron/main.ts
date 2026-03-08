@@ -7,7 +7,7 @@ import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
 // Standard CJS require for Electron
 const electron = require('electron')
-const { app, ipcMain, BrowserWindow, dialog } = electron
+const { app, ipcMain, BrowserWindow, dialog, shell } = electron
 import type { IpcMainInvokeEvent } from 'electron'
 
 // Resolve dirname for CJS/TS compatibility (Vite handles this)
@@ -41,6 +41,9 @@ interface Settings {
   httpPort: number
   streamerId?: string
   signatureBalloons?: string
+  streamerNameProfile?: string
+  streamerUrlProfile?: string
+  hasCompletedWelcome?: boolean
   autoAdd?: boolean
   minAmount?: number
   autoAddAd?: boolean
@@ -53,6 +56,9 @@ const store = new Store<Settings>({
     httpPort: 3006,
     streamerId: '',
     signatureBalloons: '',
+    streamerNameProfile: '',
+    streamerUrlProfile: '',
+    hasCompletedWelcome: false,
     autoAdd: true,
     minAmount: 0,
     autoAddAd: true,
@@ -392,13 +398,11 @@ app.whenReady().then(() => {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
 
-    // Set feed URL with token for private repo access
+    // Set feed URL for public repo access
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'dinoosaur726',
-      repo: 'BalloonWall',
-      private: true,
-      token: process.env.GH_TOKEN || ''
+      repo: 'BalloonWall'
     })
 
     autoUpdater.on('update-available', (info: any) => {
@@ -455,34 +459,7 @@ ipcMain.on('check-for-update', () => {
   })
 })
 
-// ─── Feedback → GitHub Issue ───
-ipcMain.handle('submit-feedback', async (_event: Electron.IpcMainInvokeEvent, data: { title: string; body: string }) => {
-  const token = process.env.GH_TOKEN
-  if (!token) return { success: false, error: '인증 토큰이 없습니다' }
-
-  try {
-    const res = await fetch('https://api.github.com/repos/dinoosaur726/BalloonWall/issues', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        title: `[피드백] ${data.title}`,
-        body: data.body
-      })
-    })
-
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[Feedback] Failed:', err)
-      return { success: false, error: `전송 실패 (${res.status})` }
-    }
-
-    return { success: true }
-  } catch (err: any) {
-    console.error('[Feedback] Error:', err.message)
-    return { success: false, error: err.message }
-  }
+// ─── External Links ───
+ipcMain.on('open-external', (_event: any, url: string) => {
+  shell.openExternal(url)
 })

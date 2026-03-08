@@ -40,6 +40,10 @@ interface Settings {
     // Signature Balloon Config
     streamerId?: string
     signatureBalloons?: string // Space separated numbers: "100 200 1234"
+    // Welcome Profile Config
+    streamerNameProfile?: string
+    streamerUrlProfile?: string
+    hasCompletedWelcome?: boolean
     // New Automation Settings
     autoAdd: boolean
     minAmount: number
@@ -215,6 +219,9 @@ export const useStore = create<GameState>((set, get) => ({
         httpPort: 3006,
         streamerId: '',
         signatureBalloons: '',
+        streamerNameProfile: '',
+        streamerUrlProfile: '',
+        hasCompletedWelcome: false,
         autoAdd: true,
         minAmount: 0,
         autoAddAd: true,

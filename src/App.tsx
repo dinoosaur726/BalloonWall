@@ -15,6 +15,7 @@ import { useStore } from './store'
 import { Stack } from './components/Stack'
 import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
+import { WelcomeModal } from './components/WelcomeModal'
 import UpdateNotification from './components/UpdateNotification'
 import { isElectron } from './utils/env'
 import {
@@ -36,7 +37,7 @@ declare module 'react' {
 // Global window type is handled by electron-env.d.ts
 
 function App() {
-  const { stacks, cards, handleDonation, moveCardsToStack, moveCardsToCanvas, initSettings, updateStackScale, loadState } = useStore()
+  const { stacks, cards, settings, handleDonation, moveCardsToStack, moveCardsToCanvas, initSettings, updateStackScale, loadState } = useStore()
 
   const inElectron = isElectron()
 
@@ -290,6 +291,9 @@ function App() {
 
         {/* Update Notification — Electron only */}
         {inElectron && <UpdateNotification />}
+
+        {/* Welcome Modal — Electron only */}
+        {inElectron && settings.hasCompletedWelcome === false && <WelcomeModal />}
 
         {/* Main Typeset / Canvas */}
         <div
