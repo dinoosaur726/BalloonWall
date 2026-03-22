@@ -6,7 +6,8 @@ import { useStore } from '../store'
 import {
     CARD_WIDTH_REM,
     BASE_HEIGHT_REM,
-    IMG_HEIGHT_REM
+    IMG_HEIGHT_REM,
+    TEXT_HEIGHT_REM
 } from '../constants'
 
 interface CardProps {
@@ -22,6 +23,7 @@ interface CardProps {
     scale?: number
     onScale?: (delta: number) => void
     hideImage?: boolean
+    isCustomImage?: boolean
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -34,7 +36,8 @@ export const Card: React.FC<CardProps> = ({
     isOverlay,
     childCards,
     scale = 1,
-    hideImage = false
+    hideImage = false,
+    isCustomImage = false
 }) => {
     const { settings } = useStore()
     const { design } = settings
@@ -71,7 +74,7 @@ export const Card: React.FC<CardProps> = ({
             {/* Image Area */}
             <div
                 className={twMerge(
-                    "w-full relative transition-opacity duration-300",
+                    "w-full relative transition-opacity duration-300 overflow-hidden rounded-xl",
                     hideImage ? "opacity-0" : "opacity-100"
                 )}
                 style={{ height: `${IMG_HEIGHT_REM * scale}rem` }}
@@ -84,7 +87,14 @@ export const Card: React.FC<CardProps> = ({
                         {imageUrl === 'default' && <div className="w-full h-full bg-blue-500" />}
 
                         {!['gold', 'silver', 'bronze', 'default'].includes(imageUrl) && (
-                            <img src={imageUrl} alt="bg" className="w-full h-full object-cover drop-shadow-md" />
+                            <img
+                                src={imageUrl}
+                                alt="bg"
+                                className={twMerge(
+                                    "w-full h-full drop-shadow-md",
+                                    isCustomImage ? "object-contain" : "object-cover"
+                                )}
+                            />
                         )}
                     </>
                 )}
@@ -92,13 +102,8 @@ export const Card: React.FC<CardProps> = ({
 
             {/* Text Area */}
             <div
-                className={twMerge(
-                    "w-full flex flex-col items-center justify-center flex-1 relative z-10 bg-white rounded-xl",
-                    // Explicit bg-white
-                )}
-                style={{
-                    height: `${BASE_HEIGHT_REM * scale}rem`
-                }}
+                className="w-full relative flex flex-col items-center justify-center bg-white rounded-xl"
+                style={{ height: `${TEXT_HEIGHT_REM * scale}rem` }}
             >
                 {/* Delete Button (Hover) */}
                 <button

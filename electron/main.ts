@@ -36,11 +36,20 @@ let currentState: { cards: any, stacks: any, settings: any, history: any } = {
   history: []
 }
 
+interface CustomBalloon {
+  id: string
+  amount: number
+  imageDataUrl: string
+  useForNormal: boolean
+  useForAd: boolean
+}
+
 interface Settings {
   wsPort: number
   httpPort: number
   streamerId?: string
   signatureBalloons?: string
+  customBalloons?: CustomBalloon[]
   streamerNameProfile?: string
   streamerUrlProfile?: string
   hasCompletedWelcome?: boolean
@@ -56,6 +65,7 @@ const store = new Store<Settings>({
     httpPort: 3006,
     streamerId: '',
     signatureBalloons: '',
+    customBalloons: [],
     streamerNameProfile: '',
     streamerUrlProfile: '',
     hasCompletedWelcome: false,

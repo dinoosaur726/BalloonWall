@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useStore } from '../store'
+import type { CustomBalloon } from '../store'
 import appIcon from '../../build/icon.png'
 import { isElectron } from '../utils/env'
 import packageJson from '../../package.json'
@@ -15,8 +17,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         ...settings,
         design: settings.design || { showNickname: true, showAmount: true }
     }))
-    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'history' | 'saves' | 'about' | 'feedback'>('settings')
+    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'customBalloons' | 'history' | 'saves' | 'about' | 'feedback'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
+
+    // Custom Balloon (추가시그) Form State
+    const [newCustomAmount, setNewCustomAmount] = useState<number | ''>('')
+    const [newCustomImage, setNewCustomImage] = useState<string>('')
+    const [newCustomUseNormal, setNewCustomUseNormal] = useState(true)
+    const [newCustomUseAd, setNewCustomUseAd] = useState(false)
+    const [customBalloonError, setCustomBalloonError] = useState('')
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Saves Management
     const [saveName, setSaveName] = useState('')
@@ -85,6 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     // Translation Map for Tabs
     const tabNames: Record<string, string> = {
         settings: '설정',
+        customBalloons: '추가시그',
         design: '디자인',
         history: '기록',
         saves: '저장',
@@ -105,7 +116,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
 
                     <div className="flex gap-6">
-                        {['settings', 'design', 'history', 'saves', 'about', 'feedback'].map((tab) => (
+                        {['settings', 'customBalloons', 'design', 'history', 'saves', 'about', 'feedback'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -311,6 +322,214 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
 
 
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'customBalloons' && (
+                        <div className="space-y-6">
+                            {/* Add Form */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">추가시그 등록</h3>
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-white/70 mb-1.5">풍선 개수</label>
+                                        <input
+                                            type="number"
+                                            placeholder="예: 500"
+                                            value={newCustomAmount}
+                                            onChange={(e) => setNewCustomAmount(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                                            className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-white/70 mb-1.5">이미지</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/png,image/jpeg,image/gif,image/webp"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0]
+                                                    if (!file) return
+                                                    const reader = new FileReader()
+                                                    reader.onload = () => {
+                                                        setNewCustomImage(reader.result as string)
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                    e.target.value = ''
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-semibold transition-all"
+                                            >
+                                                이미지 선택
+                                            </button>
+                                            {newCustomImage && (
+                                                <img src={newCustomImage} alt="preview" className="w-10 h-10 object-contain rounded border border-white/10" />
+                                            )}
+                                            {newCustomImage && (
+                                                <button
+                                                    onClick={() => setNewCustomImage('')}
+                                                    className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                                                >
+                                                    취소
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-6">
+                                        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={newCustomUseNormal}
+                                                onChange={(e) => setNewCustomUseNormal(e.target.checked)}
+                                                className="rounded border-white/20 bg-black/20 text-blue-500 focus:ring-blue-500/50"
+                                            />
+                                            별풍선 적용
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={newCustomUseAd}
+                                                onChange={(e) => setNewCustomUseAd(e.target.checked)}
+                                                className="rounded border-white/20 bg-black/20 text-emerald-500 focus:ring-emerald-500/50"
+                                            />
+                                            애드벌룬 적용
+                                        </label>
+                                    </div>
+
+                                    {customBalloonError && (
+                                        <p className="text-xs text-red-400">{customBalloonError}</p>
+                                    )}
+
+                                    <button
+                                        onClick={() => {
+                                            setCustomBalloonError('')
+
+                                            if (!newCustomAmount || newCustomAmount <= 0) {
+                                                setCustomBalloonError('유효한 개수를 입력해주세요.')
+                                                return
+                                            }
+                                            if (!newCustomImage) {
+                                                setCustomBalloonError('이미지를 선택해주세요.')
+                                                return
+                                            }
+                                            if (!newCustomUseNormal && !newCustomUseAd) {
+                                                setCustomBalloonError('최소 하나의 유형을 선택해주세요.')
+                                                return
+                                            }
+
+                                            const sigAmounts = (localSettings.signatureBalloons || '')
+                                                .split(' ')
+                                                .map(s => parseInt(s))
+                                                .filter(n => !isNaN(n))
+
+                                            if (sigAmounts.includes(newCustomAmount)) {
+                                                setCustomBalloonError(`${newCustomAmount}개는 이미 시그니처 풍선으로 등록되어 있습니다.`)
+                                                return
+                                            }
+
+                                            const existing = localSettings.customBalloons || []
+                                            if (existing.some(cb => cb.amount === newCustomAmount)) {
+                                                setCustomBalloonError(`${newCustomAmount}개는 이미 추가시그로 등록되어 있습니다.`)
+                                                return
+                                            }
+
+                                            const newEntry: CustomBalloon = {
+                                                id: uuidv4(),
+                                                amount: newCustomAmount,
+                                                imageDataUrl: newCustomImage,
+                                                useForNormal: newCustomUseNormal,
+                                                useForAd: newCustomUseAd
+                                            }
+
+                                            const updatedCustomBalloons = [...existing, newEntry]
+                                            const updatedSettings = {
+                                                ...localSettings,
+                                                customBalloons: updatedCustomBalloons
+                                            }
+                                            setLocalSettings(updatedSettings)
+                                            setSettings({ customBalloons: updatedCustomBalloons })
+                                            if (isElectron()) {
+                                                window.ipcRenderer.invoke('set-settings', updatedSettings)
+                                            }
+
+                                            setNewCustomAmount('')
+                                            setNewCustomImage('')
+                                            setNewCustomUseNormal(true)
+                                            setNewCustomUseAd(false)
+                                        }}
+                                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
+                                    >
+                                        추가
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* List of Custom Balloons */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">등록 목록</h3>
+                                <div className="space-y-2">
+                                    {(localSettings.customBalloons || []).map(cb => (
+                                        <div key={cb.id} className="group flex items-center justify-between p-3.5 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 hover:bg-white/[0.07] transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <img src={cb.imageDataUrl} alt={`${cb.amount}`} className="w-10 h-10 object-contain rounded border border-white/10" />
+                                                <div>
+                                                    <span className="font-medium text-white/90">{cb.amount.toLocaleString()}개</span>
+                                                    <div className="flex gap-2 mt-0.5">
+                                                        {cb.useForNormal && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">별풍선</span>
+                                                        )}
+                                                        {cb.useForAd && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">애드벌룬</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const updatedCustomBalloons = (localSettings.customBalloons || []).filter(c => c.id !== cb.id)
+                                                    const updatedSettings = {
+                                                        ...localSettings,
+                                                        customBalloons: updatedCustomBalloons
+                                                    }
+                                                    setLocalSettings(updatedSettings)
+                                                    setSettings({ customBalloons: updatedCustomBalloons })
+                                                    if (isElectron()) {
+                                                        window.ipcRenderer.invoke('set-settings', updatedSettings)
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/25 text-red-400/70 hover:text-red-300 rounded-lg text-xs font-medium transition-all"
+                                            >
+                                                삭제
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!localSettings.customBalloons || localSettings.customBalloons.length === 0) && (
+                                        <div className="flex flex-col items-center gap-2 py-10 text-white/20">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                            <span className="text-sm">등록된 추가시그가 없습니다</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 space-y-1">
+                                <p className="text-[11px] text-blue-400/70 font-semibold">권장 이미지 사이즈</p>
+                                <p className="text-[11px] text-white/40 leading-relaxed">
+                                    480 x 280 px (비율 약 12:7). 이 비율에 맞는 이미지를 사용하면 카드에 꽉 차게 표시됩니다.
+                                    다른 비율의 이미지도 사용 가능하며, 잘리지 않고 카드 안에 맞춰서 표시됩니다.
+                                </p>
+                            </div>
+
+                            <div className="text-[11px] text-white/30 leading-relaxed">
+                                * 시그니처 풍선(SOOP)에 등록된 개수와 중복되는 개수는 등록할 수 없습니다.
+                                추가시그는 시그니처 풍선 다음, 기본 풍선 이미지 이전에 적용됩니다.
                             </div>
                         </div>
                     )}
@@ -579,7 +798,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                 {/* Footer (Cancel/Save) */}
                 {
-                    (activeTab === 'settings' || activeTab === 'design') && (
+                    (activeTab === 'settings' || activeTab === 'design' || activeTab === 'customBalloons') && (
                         <div className="flex justify-end gap-3 p-6 border-t border-white/10 bg-[#1e1e1e] rounded-b-2xl shrink-0">
                             <button
                                 onClick={onClose}

@@ -91,9 +91,10 @@ export class BalloonGenerator {
         });
     }
 
-    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<string> {
+    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[], customBalloons?: { id: string, amount: number, imageDataUrl: string, useForNormal: boolean, useForAd: boolean }[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<{ imageUrl: string, isCustom: boolean }> {
         let balloonSrc = '';
         let isExternal = false;
+        let isCustom = false;
         let isAd = type === 'Ad';
 
         // 1. Signature Check (Only for Normal balloons)
@@ -103,7 +104,21 @@ export class BalloonGenerator {
             this.log(`Attempting to load signature balloon: ${balloonSrc}`);
         }
 
-        // 2. Standard External Check (If not signature and Normal)
+        // 2. Custom Balloon Check (추가시그)
+        if (!isExternal && sigConfig?.customBalloons) {
+            const match = sigConfig.customBalloons.find(cb =>
+                cb.amount === amount &&
+                (isAd ? cb.useForAd : cb.useForNormal)
+            );
+            if (match) {
+                balloonSrc = match.imageDataUrl;
+                isExternal = true;
+                isCustom = true;
+                this.log(`Using custom balloon for amount ${amount}`);
+            }
+        }
+
+        // 3. Standard External Check (If not signature/custom and Normal)
         if (!isExternal && !isAd) {
             // Try the standard external URL first
             const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
@@ -116,10 +131,15 @@ export class BalloonGenerator {
             }
         }
 
-        // 3. Ad Balloon External Check
-        if (isAd) {
+        // 4. Ad Balloon External Check
+        if (isAd && !isCustom) {
             balloonSrc = `https://static.file.sooplive.co.kr/adballoon/ceremony/mobile_${amount}.png`;
             isExternal = true;
+        }
+
+        // Custom balloons: return the uploaded image directly without compositing
+        if (isCustom) {
+            return { imageUrl: balloonSrc, isCustom: true };
         }
 
         const bgSrc = isAd ? 'assets/n_b_ad.png' : 'assets/n_b.png';
@@ -131,48 +151,56 @@ export class BalloonGenerator {
             // Load Background (always needed)
             bgImg = await this.loadImage(bgSrc);
 
-            // Load Balloon
-            try {
-                if (isAd) {
-                    balloonImg = await this.loadImage(balloonSrc);
-                } else if (isExternal && !sigConfig?.signatureBalloons.includes(amount)) {
-                    // For standard external, we attempt load.
-                    balloonImg = await this.loadImage(balloonSrc);
-                } else if (isExternal) {
-                    // Signature
-                    balloonImg = await this.loadImage(balloonSrc);
-                } else {
-                    // Should not start here if logic above is correct, unless we want to force local
-                    balloonSrc = this.getBalloonImage(amount);
-                    balloonImg = await this.loadImage(balloonSrc);
-                }
-            } catch (error) {
-                this.log(`External load failed for ${balloonSrc}. Falling back.`);
-
-                if (isAd) {
-                    // Ad fallback
-                    balloonSrc = 'assets/ad.png';
-                    balloonImg = await this.loadImage(balloonSrc);
-                    isExternal = false;
-                } else if (sigConfig?.signatureBalloons.includes(amount)) {
-                    // If it was Signature, try Standard External
-                    const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
-                    try {
-                        balloonImg = await this.loadImage(standardUrl);
-                        isExternal = true;
-                    } catch (err2) {
-                        // Standard failed, use Local
+            // Load Balloon with fallback chain
+            const loadBalloon = async (): Promise<HTMLImageElement> => {
+                // Try primary source first
+                try {
+                    if (!isExternal && !isAd) {
                         balloonSrc = this.getBalloonImage(amount);
-                        balloonImg = await this.loadImage(balloonSrc);
-                        isExternal = false;
                     }
-                } else {
-                    // Was trying Standard External, fallback to Local
+                    return await this.loadImage(balloonSrc);
+                } catch (error) {
+                    this.log(`External load failed for ${balloonSrc}. Falling back.`);
+
+                    if (isAd) {
+                        balloonSrc = 'assets/ad.png';
+                        isExternal = false;
+                        return await this.loadImage(balloonSrc);
+                    }
+
+                    if (sigConfig?.signatureBalloons.includes(amount)) {
+                        // Signature failed -> try Custom -> Standard External -> Local
+                        if (sigConfig?.customBalloons) {
+                            const match = sigConfig.customBalloons.find(cb => cb.amount === amount && cb.useForNormal);
+                            if (match) {
+                                try {
+                                    isExternal = true;
+                                    return await this.loadImage(match.imageDataUrl);
+                                } catch (_) { /* continue fallback */ }
+                            }
+                        }
+                        try {
+                            const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
+                            isExternal = true;
+                            return await this.loadImage(standardUrl);
+                        } catch (_) { /* continue fallback */ }
+                    } else if (isCustom) {
+                        // Custom failed -> try Standard External -> Local
+                        try {
+                            const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
+                            isExternal = true;
+                            return await this.loadImage(standardUrl);
+                        } catch (_) { /* continue fallback */ }
+                    }
+
+                    // Final local fallback
                     balloonSrc = this.getBalloonImage(amount);
-                    balloonImg = await this.loadImage(balloonSrc);
                     isExternal = false;
+                    return await this.loadImage(balloonSrc);
                 }
-            }
+            };
+
+            balloonImg = await loadBalloon();
 
             // ... (Canvas creation)
             const canvas = document.createElement('canvas');
@@ -246,7 +274,7 @@ export class BalloonGenerator {
             ctx.fillStyle = isAd ? '#28e3b8' : 'black';
             ctx.fillText(line2, bgCenterX, textY2_Global);
 
-            return canvas.toDataURL('image/png');
+            return { imageUrl: canvas.toDataURL('image/png'), isCustom: false };
 
         } catch (error) {
             this.log(`Balloon generation failed: ${error}`);

@@ -16,6 +16,15 @@ interface CardData {
     amount: number
     imageUrl: string
     textColor?: string
+    isCustomImage?: boolean
+}
+
+export interface CustomBalloon {
+    id: string
+    amount: number
+    imageDataUrl: string
+    useForNormal: boolean
+    useForAd: boolean
 }
 
 export interface Stack {
@@ -40,6 +49,8 @@ interface Settings {
     // Signature Balloon Config
     streamerId?: string
     signatureBalloons?: string // Space separated numbers: "100 200 1234"
+    // Custom Balloon Config (추가시그)
+    customBalloons?: CustomBalloon[]
     // Welcome Profile Config
     streamerNameProfile?: string
     streamerUrlProfile?: string
@@ -219,6 +230,7 @@ export const useStore = create<GameState>((set, get) => ({
         httpPort: 3006,
         streamerId: '',
         signatureBalloons: '',
+        customBalloons: [],
         streamerNameProfile: '',
         streamerUrlProfile: '',
         hasCompletedWelcome: false,
@@ -263,6 +275,7 @@ export const useStore = create<GameState>((set, get) => ({
         let imageUrl = 'default'
         let textColor = '#2563eb' // Default Blue
         let useGenerator = false
+        let isCustomImage = false
 
         // Use STANDARD_RANGES
         for (const range of STANDARD_RANGES) {
@@ -282,11 +295,14 @@ export const useStore = create<GameState>((set, get) => ({
             try {
                 const sigConfig = {
                     streamerId: settings.streamerId,
-                    signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : []
+                    signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : [],
+                    customBalloons: settings.customBalloons || []
                 };
 
-                // Implicitly checks signature/external logic inside generator
-                imageUrl = await BalloonGenerator.generate(nickname, amount, sigConfig, type)
+                // Implicitly checks signature/custom/external logic inside generator
+                const result = await BalloonGenerator.generate(nickname, amount, sigConfig, type)
+                imageUrl = result.imageUrl
+                isCustomImage = result.isCustom
             } catch (err) {
                 console.error("Generator failed, falling back", err)
             }
@@ -298,7 +314,8 @@ export const useStore = create<GameState>((set, get) => ({
             nickname,
             amount,
             imageUrl,
-            textColor
+            textColor,
+            isCustomImage
         }
 
         // Auto-Stacking Logic: Find stack with matching amount
@@ -642,7 +659,7 @@ export const useStore = create<GameState>((set, get) => ({
         // Side Effect: Trigger Refresh if Signature Config changed
         // We no longer check amountRanges
         const { refreshCardImages } = get()
-        if (newSettings.streamerId || newSettings.signatureBalloons) {
+        if (newSettings.streamerId || newSettings.signatureBalloons || newSettings.customBalloons) {
             refreshCardImages()
         }
     },
@@ -651,7 +668,8 @@ export const useStore = create<GameState>((set, get) => ({
         const { cards, settings } = get()
         const sigConfig = {
             streamerId: settings.streamerId,
-            signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : []
+            signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : [],
+            customBalloons: settings.customBalloons || []
         };
 
         const updates: Record<string, Partial<CardData>> = {}
@@ -673,16 +691,20 @@ export const useStore = create<GameState>((set, get) => ({
             // Actually, we probably want to regenerate to ensure we get the fetched image if available.
 
             const isSignature = sigConfig.streamerId && sigConfig.signatureBalloons.includes(card.amount);
+            const isCustom = (sigConfig.customBalloons || []).some(cb =>
+                cb.amount === card.amount &&
+                (card.type === 'Ad' ? cb.useForAd : cb.useForNormal)
+            );
             const isPreset = ['default', 'bronze', 'silver', 'gold'].includes(targetImageUrl)
             const isAd = card.type === 'Ad';
 
-            if (isPreset || isSignature || isAd) {
+            if (isPreset || isSignature || isCustom || isAd) {
                 try {
-                    const genUrl = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig, card.type || 'Normal')
-                    updates[card.id] = { imageUrl: genUrl }
+                    const result = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig, card.type || 'Normal')
+                    updates[card.id] = { imageUrl: result.imageUrl, isCustomImage: result.isCustom }
                 } catch (e) {
                     console.error(`Failed to refresh card ${card.id}`, e)
-                    updates[card.id] = { imageUrl: targetImageUrl }
+                    updates[card.id] = { imageUrl: targetImageUrl, isCustomImage: false }
                 }
             }
         })
