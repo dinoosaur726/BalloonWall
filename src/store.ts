@@ -55,6 +55,8 @@ interface Settings {
     minAmount: number
     autoAddAd: boolean
     minAmountAd: number
+    snapToStacks: boolean
+    lastSeenPatchNotes?: string
     design: {
         showNickname: boolean
         showAmount: boolean
@@ -188,6 +190,8 @@ export const useStore = create<GameState>((set, get) => ({
         minAmount: 0,
         autoAddAd: true,
         minAmountAd: 0,
+        snapToStacks: true,
+        lastSeenPatchNotes: '',
         design: {
             showNickname: true,
             showAmount: true
@@ -493,84 +497,12 @@ export const useStore = create<GameState>((set, get) => ({
             const oldHeight = baseHeight * oldScale
             const newHeight = baseHeight * newScale
             const newY = stack.y + (oldHeight - newHeight)
-            const newStacks = { ...state.stacks }
-            const updatedStack = { ...stack, scale: newScale, y: newY }
-            newStacks[stackId] = updatedStack
-            const PUSH_GAP = 0
-            const SNAP_TOLERANCE = 5
-            const baseWidth = CARD_WIDTH_REM * REM
-
-            const pushedStackIds = new Set<string>([stackId])
-
-            const pushNeighbors = (currentId: string, currentRightEdge: number) => {
-                const neighbors = Object.values(newStacks)
-                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
-                    .sort((a, b) => a.x - b.x)
-
-                for (const neighbor of neighbors) {
-                    if (neighbor.x < currentRightEdge + PUSH_GAP) {
-                        const pushDist = (currentRightEdge + PUSH_GAP) - neighbor.x
-                        newStacks[neighbor.id] = { ...neighbor, x: neighbor.x + pushDist }
-
-                        pushedStackIds.add(neighbor.id)
-
-                        const neighborWidth = baseWidth * newStacks[neighbor.id].scale
-                        pushNeighbors(neighbor.id, newStacks[neighbor.id].x + neighborWidth)
-                    }
+            return {
+                stacks: {
+                    ...state.stacks,
+                    [stackId]: { ...stack, scale: newScale, y: newY }
                 }
             }
-
-            const pullNeighbors = (currentId: string, oldRightEdge: number, shiftAmount: number) => {
-                const neighbors = Object.values(newStacks)
-                    .filter(s => s.id !== currentId && s.x > newStacks[currentId].x)
-                    .sort((a, b) => a.x - b.x)
-                for (const neighbor of neighbors) {
-                    if (Math.abs(neighbor.x - oldRightEdge) < SNAP_TOLERANCE) {
-                        const neighborOldX = neighbor.x
-                        const newNeighborX = neighbor.x + shiftAmount
-                        newStacks[neighbor.id] = { ...neighbor, x: newNeighborX }
-                        const neighborWidth = baseWidth * neighbor.scale
-                        pullNeighbors(neighbor.id, neighborOldX + neighborWidth, shiftAmount)
-                    }
-                }
-            }
-
-            const oldWidth = baseWidth * oldScale
-            const newWidth = baseWidth * newScale
-
-            if (newScale > oldScale) {
-                pushNeighbors(stackId, updatedStack.x + newWidth)
-
-                const relevantStacks = Object.values(newStacks).filter(s => pushedStackIds.has(s.id))
-
-                let maxRightEdge = 0
-                relevantStacks.forEach(s => {
-                    const sWidth = baseWidth * s.scale
-                    const sRight = s.x + sWidth
-                    if (sRight > maxRightEdge) {
-                        maxRightEdge = sRight
-                    }
-                })
-
-                const SCREEN_MARGIN = 0
-                const limitX = typeof window !== 'undefined' ? window.innerWidth - SCREEN_MARGIN : 1920
-
-                if (maxRightEdge > limitX) {
-                    const overflow = maxRightEdge - limitX
-
-                    if (overflow > 0) {
-                        relevantStacks.forEach(s => {
-                            newStacks[s.id] = { ...s, x: s.x - overflow }
-                        })
-                    }
-                }
-
-            } else {
-
-                const widthDiff = newWidth - oldWidth
-                pullNeighbors(stackId, updatedStack.x + oldWidth, widthDiff)
-            }
-            return { stacks: newStacks }
         })
     },
 

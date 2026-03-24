@@ -52,6 +52,7 @@ interface Settings {
   minAmount?: number
   autoAddAd?: boolean
   minAmountAd?: number
+  lastSeenPatchNotes?: string
 }
 
 const store = new Store<Settings>({
@@ -67,7 +68,8 @@ const store = new Store<Settings>({
     autoAdd: true,
     minAmount: 0,
     autoAddAd: true,
-    minAmountAd: 0
+    minAmountAd: 0,
+    lastSeenPatchNotes: ''
   }
 })
 

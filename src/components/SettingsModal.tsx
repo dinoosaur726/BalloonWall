@@ -310,6 +310,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     </div>
                                 </div>
 
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">스냅</h3>
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <span className="text-sm font-medium text-white/90">카드 간 스냅</span>
+                                                <div className="text-xs text-white/50 mt-0.5">
+                                                    {localSettings.snapToStacks !== false ? '카드를 다른 카드 옆에 놓으면 자동으로 붙습니다.' : '카드 간 자동 붙기가 꺼져 있습니다. 벽면 스냅은 유지됩니다.'}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setLocalSettings({ ...localSettings, snapToStacks: localSettings.snapToStacks === false ? true : false })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.snapToStacks !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.snapToStacks !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
 
                             </div>
                         </div>

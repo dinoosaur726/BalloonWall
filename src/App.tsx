@@ -17,6 +17,8 @@ import { Card } from './components/Card'
 import { SettingsModal } from './components/SettingsModal'
 import { WelcomeModal } from './components/WelcomeModal'
 import UpdateNotification from './components/UpdateNotification'
+import { PatchNotesModal } from './components/PatchNotesModal'
+import packageJson from '../package.json'
 import { isElectron } from './utils/env'
 import {
   REM,
@@ -51,7 +53,7 @@ function App() {
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: settings.snapToStacks ? 5 : 0,
       },
     }),
     useSensor(TouchSensor)
@@ -166,8 +168,12 @@ function App() {
       const targetStackEntry = Object.entries(stacks).find(([sId, s]) => sId === targetStackId || s.cardIds.includes(targetStackId))
       if (targetStackEntry) {
         targetStackId = targetStackEntry[0]
-        moveCardsToStack(draggedGroup, targetStackId)
-        return
+        const sourceStack = Object.values(stacks).find(s => s.cardIds.includes(active.id as string))
+        const isSameStack = sourceStack && sourceStack.id === targetStackId
+        if (!isSameStack || settings.snapToStacks) {
+          moveCardsToStack(draggedGroup, targetStackId)
+          return
+        }
       }
     }
 
@@ -193,22 +199,24 @@ function App() {
       if (finalX + cardWidth > WINDOW_W - SNAP_DIST_PX) finalX = WINDOW_W - cardWidth
       if (finalY + totalHeight > WINDOW_H - SNAP_DIST_PX) finalY = WINDOW_H - totalHeight
 
-      for (const stack of Object.values(stacks)) {
-        if (activeId && stack.cardIds.includes(activeId) && draggedGroup.length === stack.cardIds.length) {
-          continue
-        }
+      if (settings.snapToStacks) {
+        for (const stack of Object.values(stacks)) {
+          if (activeId && stack.cardIds.includes(activeId) && draggedGroup.length === stack.cardIds.length) {
+            continue
+          }
 
-        const otherScale = stack.scale
-        const otherW = CARD_WIDTH_REM * REM * otherScale
+          const otherScale = stack.scale
+          const otherW = CARD_WIDTH_REM * REM * otherScale
 
-        if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST_PX) {
-          finalX = stack.x + otherW + 1
-          if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
-        }
+          if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST_PX) {
+            finalX = stack.x + otherW + 1
+            if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
+          }
 
-        if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST_PX) {
-          finalX = stack.x - cardWidth - 1
-          if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
+          if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST_PX) {
+            finalX = stack.x - cardWidth - 1
+            if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
+          }
         }
       }
 
@@ -256,6 +264,7 @@ function App() {
         {inElectron && showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
         {inElectron && <UpdateNotification />}
         {inElectron && settings.hasCompletedWelcome === false && <WelcomeModal />}
+        {inElectron && settings.hasCompletedWelcome !== false && settings.lastSeenPatchNotes !== packageJson.version && <PatchNotesModal />}
 
         <div
           ref={setCanvasRef}
