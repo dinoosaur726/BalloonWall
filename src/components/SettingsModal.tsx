@@ -522,8 +522,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 space-y-1">
                                 <p className="text-[11px] text-blue-400/70 font-semibold">권장 이미지 사이즈</p>
                                 <p className="text-[11px] text-white/40 leading-relaxed">
-                                    480 x 280 px (비율 약 12:7). 이 비율에 맞는 이미지를 사용하면 카드에 꽉 차게 표시됩니다.
-                                    다른 비율의 이미지도 사용 가능하며, 잘리지 않고 카드 안에 맞춰서 표시됩니다.
+                                    480 x 285 px (비율 16:9.5). 이 비율에 맞는 이미지를 사용하면 카드에 꽉 차게 표시됩니다.
+                                    다른 비율의 이미지도 사용 가능하지만, 비율이 다르면 늘어날 수 있습니다. 빈 여백 없이 꽉 찬 이미지를 사용해 주세요.
                                 </p>
                             </div>
 

@@ -58,7 +58,7 @@ export const Card: React.FC<CardProps> = ({
         <motion.div
             ref={setNodeRef}
             className={twMerge(
-                "relative flex flex-col items-center p-0 rounded-xl select-none cursor-grab active:cursor-grabbing overflow-hidden group",
+                "relative flex flex-col items-center p-0 rounded-xl select-none cursor-grab active:cursor-grabbing overflow-hidden group bg-transparent",
                 // Removed border and white background from container
                 isDragging ? "opacity-30" : "opacity-100",
                 // Removed scale-105 to prevent position jump on drop

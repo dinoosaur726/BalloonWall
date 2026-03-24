@@ -5,7 +5,7 @@ export const REM = 16
 
 // Card Dimensions (in rem)
 export const CARD_WIDTH_REM = 15.12
-export const IMG_HEIGHT_REM = 8.47
+export const IMG_HEIGHT_REM = 8.97375
 // Increased from 2.5 to 2.75 (~10% boost for text area)
 export const TEXT_HEIGHT_REM = 2.75
 

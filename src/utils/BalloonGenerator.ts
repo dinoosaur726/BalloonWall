@@ -91,16 +91,18 @@ export class BalloonGenerator {
         });
     }
 
-    static async generate(nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[], customBalloons?: { id: string, amount: number, imageDataUrl: string, useForNormal: boolean, useForAd: boolean }[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<{ imageUrl: string, isCustom: boolean }> {
+    static async generate(_nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[], customBalloons?: { id: string, amount: number, imageDataUrl: string, useForNormal: boolean, useForAd: boolean }[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<{ imageUrl: string, isCustom: boolean }> {
         let balloonSrc = '';
         let isExternal = false;
         let isCustom = false;
         let isAd = type === 'Ad';
+        let isSignatureSource = false;
 
         // 1. Signature Check (Only for Normal balloons)
         if (!isAd && sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
             balloonSrc = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
             isExternal = true;
+            isSignatureSource = true;
             this.log(`Attempting to load signature balloon: ${balloonSrc}`);
         }
 
@@ -137,19 +139,26 @@ export class BalloonGenerator {
             isExternal = true;
         }
 
-        // Custom balloons: return the uploaded image directly without compositing
+        // Custom balloons: load image, stretch to fit, return
         if (isCustom) {
-            return { imageUrl: balloonSrc, isCustom: true };
+            try {
+                const customImg = await this.loadImage(balloonSrc);
+                const stretched = document.createElement('canvas');
+                stretched.width = 480;
+                stretched.height = 285;
+                const sCtx = stretched.getContext('2d');
+                if (sCtx) {
+                    sCtx.drawImage(customImg, 0, 0, 480, 285);
+                }
+                return { imageUrl: stretched.toDataURL('image/png'), isCustom: true };
+            } catch (e) {
+                this.log(`Custom balloon stretch failed: ${e}`);
+                return { imageUrl: balloonSrc, isCustom: true };
+            }
         }
-
-        const bgSrc = isAd ? 'assets/n_b_ad.png' : 'assets/n_b.png';
 
         try {
             let balloonImg: HTMLImageElement;
-            let bgImg: HTMLImageElement;
-
-            // Load Background (always needed)
-            bgImg = await this.loadImage(bgSrc);
 
             // Load Balloon with fallback chain
             const loadBalloon = async (): Promise<HTMLImageElement> => {
@@ -170,6 +179,7 @@ export class BalloonGenerator {
 
                     if (sigConfig?.signatureBalloons.includes(amount)) {
                         // Signature failed -> try Custom -> Standard External -> Local
+                        isSignatureSource = false;
                         if (sigConfig?.customBalloons) {
                             const match = sigConfig.customBalloons.find(cb => cb.amount === amount && cb.useForNormal);
                             if (match) {
@@ -202,27 +212,39 @@ export class BalloonGenerator {
 
             balloonImg = await loadBalloon();
 
-            // ... (Canvas creation)
+            // Crop external balloon images: signature → bottom 293x163, standard → bottom 293x174
+            if (isExternal && balloonImg.width === 293 && balloonImg.height === 248) {
+                const cropH = isSignatureSource ? 163 : 174;
+                const cropY = 248 - cropH;
+                const cropCanvas = document.createElement('canvas');
+                cropCanvas.width = 293;
+                cropCanvas.height = cropH;
+                const cropCtx = cropCanvas.getContext('2d');
+                if (cropCtx) {
+                    cropCtx.drawImage(balloonImg, 0, cropY, 293, cropH, 0, 0, 293, cropH);
+                    balloonImg = new Image();
+                    await new Promise<void>((resolve) => {
+                        balloonImg.onload = () => resolve();
+                        balloonImg.src = cropCanvas.toDataURL('image/png');
+                    });
+                }
+            }
+
+            // Canvas sized to balloon image only (Card component handles text area separately)
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) throw new Error('Could not get canvas context');
 
-            // Python Logic: width is balloon width. Height is sum.
             canvas.width = balloonImg.width;
-            canvas.height = balloonImg.height + bgImg.height;
+            canvas.height = balloonImg.height;
 
             // 1. Draw Balloon at (0,0)
             ctx.drawImage(balloonImg, 0, 0);
 
-            // 2. Draw Background Panel at (0, balloonHeight)
-            ctx.drawImage(bgImg, 0, balloonImg.height);
-
-            // 3. Draw Amount on Balloon (ONLY IF NOT EXTERNAL AND NOT AD)
+            // 2. Draw Amount on Balloon (ONLY IF NOT EXTERNAL AND NOT AD)
             if (!isExternal && !isAd) {
                 await this.loadFont();
 
-                // Python: d_p_x centered on balloon, y=120
-                // Font size 50
                 ctx.font = `50px "${this.fontName}", sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
@@ -231,50 +253,39 @@ export class BalloonGenerator {
                 const balloonCenterX = balloonImg.width / 2;
                 const amountY = 120;
 
-                // Outline (3px radius in Python -> ~6-8px stroke)
                 ctx.lineWidth = 8;
                 ctx.strokeStyle = 'white';
                 ctx.lineJoin = 'round';
                 ctx.strokeText(amountText, balloonCenterX, amountY);
 
-                // Fill
                 ctx.fillStyle = '#ff2f00';
                 ctx.fillText(amountText, balloonCenterX, amountY);
             }
 
-            // 4. Draw Text on Background Panel
-            // ... (rest is same)
-            // But we need font loaded effectively. 
-            // If signature, we skipped loadFont? No, we need it for bottom panel.
-            if (isExternal) {
-                await this.loadFont();
+            // Crop local/ad balloon images to bottom 293x162
+            let sourceForStretch: HTMLCanvasElement = canvas;
+            if (!isExternal) {
+                const cropH = 162;
+                const cropY = canvas.height - cropH;
+                const cropCanvas = document.createElement('canvas');
+                cropCanvas.width = 293;
+                cropCanvas.height = cropH;
+                const cCtx = cropCanvas.getContext('2d');
+                if (cCtx) {
+                    cCtx.drawImage(canvas, 0, cropY, 293, cropH, 0, 0, 293, cropH);
+                    sourceForStretch = cropCanvas;
+                }
             }
 
-            // ... Text logic ...
-            ctx.font = `20px "${this.fontName}", sans-serif`;
-
-            const line1 = `${nickname}님`;
-            const line2 = isAd ? `애드벌룬 ${amount.toLocaleString()}개` : `별풍선 ${amount.toLocaleString()}개`;
-
-            const bgCenterX = bgImg.width / 2;
-
-            const estimatedTextHeight = 20;
-            const textY1_Local = (bgImg.height - estimatedTextHeight) / 4;
-            const textY1_Global = balloonImg.height + textY1_Local;
-
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-
-            ctx.fillStyle = isAd ? 'white' : '#ff2f00';
-            ctx.fillText(line1, bgCenterX, textY1_Global);
-
-            // Line 2
-            const textY2_Global = textY1_Global + estimatedTextHeight + 5;
-
-            ctx.fillStyle = isAd ? '#28e3b8' : 'black';
-            ctx.fillText(line2, bgCenterX, textY2_Global);
-
-            return { imageUrl: canvas.toDataURL('image/png'), isCustom: false };
+            // Stretch all images to fit card image dimensions (480x285, 16:9.5)
+            const stretched = document.createElement('canvas');
+            stretched.width = 480;
+            stretched.height = 285;
+            const sCtx = stretched.getContext('2d');
+            if (sCtx) {
+                sCtx.drawImage(sourceForStretch, 0, 0, 480, 285);
+            }
+            return { imageUrl: stretched.toDataURL('image/png'), isCustom: false };
 
         } catch (error) {
             this.log(`Balloon generation failed: ${error}`);
