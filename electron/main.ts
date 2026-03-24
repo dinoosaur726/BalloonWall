@@ -5,18 +5,14 @@ import fs from 'node:fs'
 import { WebSocketServer, WebSocket } from 'ws'
 import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
-// Standard CJS require for Electron
 const electron = require('electron')
 const { app, ipcMain, BrowserWindow, dialog, shell } = electron
 import type { IpcMainInvokeEvent } from 'electron'
 
-// Resolve dirname for CJS/TS compatibility (Vite handles this)
 const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
-// The built directory structure
 process.env.APP_ROOT = path.join(__dirname, '..')
 
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
@@ -28,7 +24,6 @@ let win: any | null
 let wss: WebSocketServer | null
 let httpServer: http.Server | null
 
-// ─── Current State Cache (for sync to browser clients) ───
 let currentState: { cards: any, stacks: any, settings: any, history: any } = {
   cards: {},
   stacks: {},
@@ -76,7 +71,6 @@ const store = new Store<Settings>({
   }
 })
 
-// ─── MIME Type Helper ───
 const MIME_MAP: Record<string, string> = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -96,38 +90,30 @@ const MIME_MAP: Record<string, string> = {
   '.map': 'application/json',
 }
 
-// ─── HTTP Static File Server (for OBS Browser Source) ───
 function startHttpServer(port: number) {
   if (httpServer) {
     httpServer.close()
     httpServer = null
   }
 
-  // Determine the directory to serve
   const serveDir = VITE_DEV_SERVER_URL
-    ? path.join(process.env.APP_ROOT!, 'dist') // Fallback; in dev mode, we proxy to Vite
+    ? path.join(process.env.APP_ROOT!, 'dist')
     : RENDERER_DIST
 
   httpServer = http.createServer((req, res) => {
-    // Add CORS headers for OBS browser source
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
     let urlPath = req.url || '/'
 
-    // Remove query strings
     urlPath = urlPath.split('?')[0]
 
-    // Default to index.html
     if (urlPath === '/') urlPath = '/index.html'
 
-    // In dev mode, proxy to Vite dev server
     if (VITE_DEV_SERVER_URL) {
-      // Proxy requests to Vite dev server
       const targetUrl = new URL(urlPath, VITE_DEV_SERVER_URL)
 
-      // Use dynamic import for http proxy-like behavior
       const proxyReq = http.request(targetUrl.href, { method: 'GET' }, (proxyRes) => {
         res.writeHead(proxyRes.statusCode || 200, proxyRes.headers)
         proxyRes.pipe(res)
@@ -140,10 +126,8 @@ function startHttpServer(port: number) {
       return
     }
 
-    // Production: serve static files
     const filePath = path.join(serveDir, urlPath)
 
-    // Security: prevent path traversal
     if (!filePath.startsWith(serveDir)) {
       res.writeHead(403)
       res.end('Forbidden')
@@ -155,7 +139,6 @@ function startHttpServer(port: number) {
 
     fs.readFile(filePath, (err, data) => {
       if (err) {
-        // SPA fallback: serve index.html for non-file routes
         if (err.code === 'ENOENT') {
           fs.readFile(path.join(serveDir, 'index.html'), (err2, indexData) => {
             if (err2) {
@@ -187,7 +170,6 @@ function startHttpServer(port: number) {
   })
 }
 
-// ─── Broadcast state to all WebSocket clients ───
 function broadcastToWsClients(type: string, payload: any) {
   if (!wss) return
   const message = JSON.stringify({ type, payload })
@@ -198,7 +180,6 @@ function broadcastToWsClients(type: string, payload: any) {
   })
 }
 
-// ─── WebSocket Server ───
 function startWebSocketServer(port: number) {
   if (wss) {
     wss.close()
@@ -211,7 +192,6 @@ function startWebSocketServer(port: number) {
     wss.on('connection', (ws) => {
       console.log('Client connected')
 
-      // Send current state to newly connected client (for OBS browser source sync)
       ws.send(JSON.stringify({
         type: 'full-state',
         payload: currentState
@@ -221,26 +201,19 @@ function startWebSocketServer(port: number) {
         const msgStr = message.toString()
         console.log('Received:', msgStr)
 
-        // Try parsing as JSON first (for structured messages)
         try {
           const parsed = JSON.parse(msgStr)
-          // Handle structured messages if needed in the future
           if (parsed.type) {
             return
           }
         } catch {
-          // Not JSON, try legacy format
         }
 
-        // Formats:
-        // 1. New: "{balloontype}/{Nickname}/{amount}"
-        // 2. Legacy: "{Nickname}/{amount}" -> Treat as "Normal"
         if (msgStr.includes('/')) {
           const parts = msgStr.split('/')
           if (parts.length === 3) {
             const [typeStr, nickname, amountStr] = parts
             const amount = parseInt(amountStr, 10)
-            // Ensure type is 'Normal' or 'Ad'
             const type = typeStr === 'Ad' ? 'Ad' : 'Normal'
             if (!isNaN(amount) && win) {
               win.webContents.send('new-donation', { type, nickname, amount })
@@ -267,22 +240,22 @@ function createWindow() {
   win = new BrowserWindow({
     width,
     height,
-    useContentSize: true, // Ensure viewport is exactly 1920x1080
-    resizable: false,     // Disable resizing by user
-    fullscreenable: false, // Prevent maximizing
+    useContentSize: true,
+    resizable: false,
+    fullscreenable: false,
     x: 0,
     y: 0,
     icon: path.join(process.env.APP_ROOT!, 'build', 'icon.png'),
-    frame: false, // Frameless for clean OBS capture
-    titleBarStyle: 'hidden', // Hide title bar on Mac
-    transparent: true, // Keep transparency support
-    backgroundColor: '#00000000', // Explicitly transparent (ARGB) to prevent grey/white ghosting
+    frame: false,
+    titleBarStyle: 'hidden',
+    transparent: true,
+    backgroundColor: '#00000000',
     hasShadow: false,
-    alwaysOnTop: false, // User requested standard window
+    alwaysOnTop: false,
     skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false // Allow loading local resources (file://)
+      webSecurity: false
     },
   })
 
@@ -318,7 +291,6 @@ ipcMain.handle('select-image', async () => {
   return `file://${result.filePaths[0]}`
 })
 
-// Save Base64 Data URL to Disk
 ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl: string) => {
   const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
   if (!matches || matches.length !== 3) {
@@ -373,7 +345,6 @@ ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => 
   return store.store
 })
 
-// ─── State Sync: Renderer → Main → WS Clients ───
 ipcMain.on('state-sync', (_event: any, state: any) => {
   currentState = state
   broadcastToWsClients('state-update', state)
@@ -403,12 +374,10 @@ app.whenReady().then(() => {
   startWebSocketServer(wsPort)
   startHttpServer(httpPort)
 
-  // ─── Auto-Update (production only) ───
   if (!VITE_DEV_SERVER_URL) {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
 
-    // Set feed URL for public repo access
     autoUpdater.setFeedURL({
       provider: 'github',
       owner: 'dinoosaur726',
@@ -443,7 +412,6 @@ app.whenReady().then(() => {
       console.error('[AutoUpdater] Error:', err.message)
     })
 
-    // Check after 3 seconds to not block startup
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((err: Error) => {
         console.error('[AutoUpdater] Check failed:', err.message)
@@ -452,7 +420,6 @@ app.whenReady().then(() => {
   }
 })
 
-// ─── Auto-Update IPC Handlers ───
 ipcMain.on('download-update', () => {
   autoUpdater.downloadUpdate().catch((err: Error) => {
     console.error('[AutoUpdater] Download failed:', err.message)
@@ -469,7 +436,6 @@ ipcMain.on('check-for-update', () => {
   })
 })
 
-// ─── External Links ───
 ipcMain.on('open-external', (_event: any, url: string) => {
   shell.openExternal(url)
 })

@@ -33,7 +33,6 @@ export interface Stack {
     x: number
     y: number
     scale: number
-    // We can add zIndex if needed, or rely on render order
 }
 
 const STANDARD_RANGES = [
@@ -46,29 +45,21 @@ const STANDARD_RANGES = [
 interface Settings {
     wsPort: number
     httpPort: number
-    // Signature Balloon Config
     streamerId?: string
-    signatureBalloons?: string // Space separated numbers: "100 200 1234"
-    // Custom Balloon Config (추가시그)
+    signatureBalloons?: string
     customBalloons?: CustomBalloon[]
-    // Welcome Profile Config
     streamerNameProfile?: string
     streamerUrlProfile?: string
     hasCompletedWelcome?: boolean
-    // New Automation Settings
     autoAdd: boolean
     minAmount: number
     autoAddAd: boolean
     minAmountAd: number
-    // Design Settings
     design: {
         showNickname: boolean
         showAmount: boolean
     }
 }
-
-// ... (Stack update helpers remain same) ...
-
 
 interface Rect {
     left: number
@@ -94,11 +85,9 @@ const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId:
     const queue = [sourceStackId]
     const processed = new Set<string>()
 
-    const PADDING = 0 // Px buffer
-
-    // Prevent infinite loops
-    let iterations = 0
+    const PADDING = 0
     const MAX_ITERATIONS = 1000
+    let iterations = 0
 
     while (queue.length > 0 && iterations < MAX_ITERATIONS) {
         iterations++
@@ -111,55 +100,21 @@ const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId:
 
         const currentRect = getStackRect(currentStack)
 
-        // Find stacks that physically overlap horizontally AND are vertically "above" the current stack
-        // But since coordinate system is: Y=0 is top, Y+ is down.
-        // "Above" visually means physically smaller Y value.
-        // If current stack grows UP (y decreases), it pushes stacks with even SMALLER y further up (smaller y).
-
-        // Collision Condition:
-        // 1. Horizontal Overlap
-        // 2. Vertical Overlap (current.top < other.bottom)
-        // 3. Logic: We only push stacks UP. So we look for stacks whose BOTTOM is below CURRENT TOP.
-
         Object.values(newStacks).forEach(other => {
             if (other.id === currentId) return
 
             const otherRect = getStackRect(other)
 
-            // Horizontal Overlap Check
             const isHorizontalOverlap = currentRect.left < otherRect.right && currentRect.right > otherRect.left
 
             if (isHorizontalOverlap) {
-                // VISUALLY ABOVE:
-                // In DOM/CSS: Y=0 is Top.
-                // If 'other' is visually above 'current', then other.y < current.y
-                // If current expands UPWARDS, current.y decreases.
-                // Collision happens if current.top < other.bottom.
-
-                // Check if 'other' is the one strictly ABOVE 'current'
-                // We only push 'other' if it is overlapping vertically OR if it is dangerously close?
-                // The request relies on standard stacking behavior.
-                // "If 552 stack grows up, the 300 stack above it must go up".
-
-                // So if other.bottom > current.top - PADDING?
-                // Actually strictly overlap: other.bottom > current.top
-
                 if (otherRect.bottom > currentRect.top + PADDING) {
-                    // But we must also ensure 'other' is logically meant to be above.
-                    // Simple heuristic: If other.top < current.top (it started above), keep it above.
                     if (otherRect.top < currentRect.top) {
-                        // Push 'other' UP so its bottom aligns with current.top - PADDING
-                        // other.newBottom = current.top - PADDING
-                        // other.y + height = current.top - PADDING
-                        // other.y = current.top - PADDING - height
-
                         const otherHeight = otherRect.bottom - otherRect.top
                         const newY = currentRect.top - PADDING - otherHeight
 
-                        // Only update if it moves UP (decreases Y)
                         if (newY < other.y) {
                             newStacks[other.id] = { ...other, y: newY }
-                            // Since 'other' moved, it might push stacks above IT.
                             queue.push(other.id)
                         }
                     }
@@ -172,7 +127,6 @@ const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId:
 }
 
 const updateSourceStack = (stack: Stack, removedCardIds: string[]): Stack | null => {
-    // ...
     const newCardIds = stack.cardIds.filter(id => !removedCardIds.includes(id))
 
     if (newCardIds.length === 0) return null
@@ -192,11 +146,9 @@ interface GameState {
     stacks: Record<string, Stack>
     settings: Settings
 
-    // Actions
-    handleDonation: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void // New Action
+    handleDonation: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void
     addCard: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void
 
-    // Stack Operations
     createStack: (cardIds: string[], x: number, y: number) => void
     moveCardsToStack: (cardIds: string[], targetStackId: string) => void
     moveCardsToCanvas: (cardIds: string[], x: number, y: number) => void
@@ -207,9 +159,7 @@ interface GameState {
 
     moveStack: (stackId: string, x: number, y: number) => void
 
-    // History
     history: { id: string, type?: 'Normal' | 'Ad', nickname: string, amount: number, timestamp: number }[]
-    // Actions
     loadState: (state: GameState) => void
     resetState: () => void
 
@@ -247,7 +197,6 @@ export const useStore = create<GameState>((set, get) => ({
     handleDonation: (type, nickname, amount) => {
         const { settings, addCard } = get()
 
-        // 1. Always add to History (Req: History generates around the request)
         const historyItem = {
             id: uuidv4(),
             type,
@@ -257,7 +206,6 @@ export const useStore = create<GameState>((set, get) => ({
         }
         set(state => ({ history: [historyItem, ...state.history] }))
 
-        // 2. Logic for Auto-Creation
         if (type === 'Ad') {
             if (settings.autoAddAd && amount >= settings.minAmountAd) {
                 addCard(type, nickname, amount)
@@ -273,11 +221,10 @@ export const useStore = create<GameState>((set, get) => ({
         const { settings } = get()
 
         let imageUrl = 'default'
-        let textColor = '#2563eb' // Default Blue
+        let textColor = '#2563eb'
         let useGenerator = false
         let isCustomImage = false
 
-        // Use STANDARD_RANGES
         for (const range of STANDARD_RANGES) {
             if (amount >= range.min && amount <= range.max) {
                 imageUrl = range.imageUrl
@@ -286,7 +233,6 @@ export const useStore = create<GameState>((set, get) => ({
             }
         }
 
-        // Decide generator usage
         if (['default', 'bronze', 'silver', 'gold'].includes(imageUrl)) {
             useGenerator = true
         }
@@ -299,7 +245,6 @@ export const useStore = create<GameState>((set, get) => ({
                     customBalloons: settings.customBalloons || []
                 };
 
-                // Implicitly checks signature/custom/external logic inside generator
                 const result = await BalloonGenerator.generate(nickname, amount, sigConfig, type)
                 imageUrl = result.imageUrl
                 isCustomImage = result.isCustom
@@ -318,27 +263,19 @@ export const useStore = create<GameState>((set, get) => ({
             isCustomImage
         }
 
-        // Auto-Stacking Logic: Find stack with matching amount
         const stackValues = Object.values(get().stacks)
         let targetStack: Stack | null = null
 
-        // Find a stack that has cards of the same amount
-        // Strategy: Prioritize stacks with FEWER cards. If equal, prioritize the NEWEST stack (later in the list).
         for (const stack of stackValues) {
             if (stack.cardIds.length > 0) {
                 const firstCardId = stack.cardIds[0]
                 const firstCard = get().cards[firstCardId]
                 if (firstCard && firstCard.amount === amount && firstCard.type === type) {
-                    // Check if adding a card would go off-screen
                     const nextY = stack.y - (STEP_REM * REM * stack.scale)
                     if (nextY < 50) {
                         continue
                     }
 
-                    // Check if this stack is a better candidate
-                    // 1. If no target yet, take it.
-                    // 2. If this stack has fewer cards than the current best, take it.
-                    // 3. If equal cards, take it (because we iterate oldest -> newest, so later is newer).
                     if (!targetStack || stack.cardIds.length <= targetStack.cardIds.length) {
                         targetStack = stack
                     }
@@ -355,7 +292,6 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
-            // --- RESOLVE VERTICAL COLLISIONS ---
             let nextStacks = { ...get().stacks, [targetStack.id]: updatedStack }
             nextStacks = resolveVerticalCollisions(nextStacks, targetStack.id)
 
@@ -364,9 +300,6 @@ export const useStore = create<GameState>((set, get) => ({
                 stacks: nextStacks
             }))
         } else {
-            // No matching stack found -> Create New Stack
-            // Position it randomly or use a smart placement (AutoOrganize logic is separate)
-            // For now, random placement to avoid overlap
             const x = 50 + Math.random() * 200
             const y = 50 + Math.random() * 200
 
@@ -410,7 +343,6 @@ export const useStore = create<GameState>((set, get) => ({
     },
 
     moveCardsToStack: (cardIds, targetStackId) => {
-        // ... (existing implementation)
         set(state => {
             const firstCardId = cardIds[0]
             const sourceStackEntry = Object.entries(state.stacks).find(([_, s]) => s.cardIds.includes(firstCardId))
@@ -436,7 +368,6 @@ export const useStore = create<GameState>((set, get) => ({
                 y: targetStack.y - shiftUp
             }
 
-            // --- RESOLVE VERTICAL COLLISIONS ---
             const resolvedStacks = resolveVerticalCollisions(newStacks, targetStackId)
 
             return { stacks: resolvedStacks }
@@ -491,7 +422,6 @@ export const useStore = create<GameState>((set, get) => ({
     },
 
     autoOrganize: () => {
-        // ... (existing implementation)
         set(state => {
             const stacks = { ...state.stacks }
             const stackValues = Object.values(stacks)
@@ -550,7 +480,6 @@ export const useStore = create<GameState>((set, get) => ({
     },
 
     updateStackScale: (stackId, delta) => {
-        // ... (existing implementation)
         set(state => {
             const stack = state.stacks[stackId]
             if (!stack) return state
@@ -571,7 +500,6 @@ export const useStore = create<GameState>((set, get) => ({
             const SNAP_TOLERANCE = 5
             const baseWidth = CARD_WIDTH_REM * REM
 
-            // Track which stacks are part of the "push chain"
             const pushedStackIds = new Set<string>([stackId])
 
             const pushNeighbors = (currentId: string, currentRightEdge: number) => {
@@ -580,12 +508,11 @@ export const useStore = create<GameState>((set, get) => ({
                     .sort((a, b) => a.x - b.x)
 
                 for (const neighbor of neighbors) {
-                    // Check if they physically overlap (or touch)
                     if (neighbor.x < currentRightEdge + PUSH_GAP) {
                         const pushDist = (currentRightEdge + PUSH_GAP) - neighbor.x
                         newStacks[neighbor.id] = { ...neighbor, x: neighbor.x + pushDist }
 
-                        pushedStackIds.add(neighbor.id) // Track this stack
+                        pushedStackIds.add(neighbor.id)
 
                         const neighborWidth = baseWidth * newStacks[neighbor.id].scale
                         pushNeighbors(neighbor.id, newStacks[neighbor.id].x + neighborWidth)
@@ -614,9 +541,6 @@ export const useStore = create<GameState>((set, get) => ({
             if (newScale > oldScale) {
                 pushNeighbors(stackId, updatedStack.x + newWidth)
 
-                // Check for Off-Screen Overflow (Right Side)
-                // ONLY check stacks that were actually pushed (or are the source).
-                // Ignore far-away stacks that weren't involved in the push chain.
                 const relevantStacks = Object.values(newStacks).filter(s => pushedStackIds.has(s.id))
 
                 let maxRightEdge = 0
@@ -653,11 +577,9 @@ export const useStore = create<GameState>((set, get) => ({
     setSettings: (newSettings) => {
         set(state => {
             const updatedSettings = { ...state.settings, ...newSettings }
-            return { settings: updatedSettings } // Simplified setSettings
+            return { settings: updatedSettings }
         })
 
-        // Side Effect: Trigger Refresh if Signature Config changed
-        // We no longer check amountRanges
         const { refreshCardImages } = get()
         if (newSettings.streamerId || newSettings.signatureBalloons || newSettings.customBalloons) {
             refreshCardImages()
@@ -676,19 +598,12 @@ export const useStore = create<GameState>((set, get) => ({
         const promises = Object.values(cards).map(async (card) => {
             let targetImageUrl = 'default'
 
-            // Check STANDARD_RANGES
             for (const range of STANDARD_RANGES) {
                 if (card.amount >= range.min && card.amount <= range.max) {
                     targetImageUrl = range.imageUrl
                     break
                 }
             }
-
-            // Signature Logic
-            // If it matches signature, we regenerate.
-            // If it matches standard ranges (default/bronze/...), we regenerate (to get updated visuals/fetch)
-            // Wait, if it's standard, we ALWAYS regenerate now because we rely on Generator for ALL of them except maybe pure local?
-            // Actually, we probably want to regenerate to ensure we get the fetched image if available.
 
             const isSignature = sigConfig.streamerId && sigConfig.signatureBalloons.includes(card.amount);
             const isCustom = (sigConfig.customBalloons || []).some(cb =>
@@ -736,9 +651,7 @@ export const useStore = create<GameState>((set, get) => ({
     }))
 }))
 
-// ─── State Sync: Send state changes to Main Process for WS broadcast ───
 if (isElectron()) {
-    // Debounced state sync to avoid flooding IPC
     let syncTimer: ReturnType<typeof setTimeout> | null = null
     useStore.subscribe((state) => {
         if (syncTimer) clearTimeout(syncTimer)
@@ -749,6 +662,6 @@ if (isElectron()) {
                 settings: state.settings,
                 history: state.history
             })
-        }, 50) // 50ms debounce
+        }, 50)
     })
 }

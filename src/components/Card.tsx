@@ -17,9 +17,9 @@ interface CardProps {
     imageUrl: string
     type?: 'Normal' | 'Ad'
     textColor?: string
-    index: number // logic index in column
+    index: number
     isOverlay?: boolean
-    childCards?: React.ReactNode // For overlay grouping
+    childCards?: React.ReactNode
     scale?: number
     onScale?: (delta: number) => void
     hideImage?: boolean
@@ -49,19 +49,15 @@ export const Card: React.FC<CardProps> = ({
     })
 
     const currentWidthRem = CARD_WIDTH_REM * scale
-
-    // Adjust font sizes based on scale - Increased as requested
-    const nicknameSize = `${0.9 * scale}rem` // Match amount size
-    const amountSize = `${0.9 * scale}rem`   // Smaller
+    const nicknameSize = `${0.9 * scale}rem`
+    const amountSize = `${0.9 * scale}rem`
 
     return (
         <motion.div
             ref={setNodeRef}
             className={twMerge(
                 "relative flex flex-col items-center p-0 rounded-xl select-none cursor-grab active:cursor-grabbing overflow-hidden group bg-transparent",
-                // Removed border and white background from container
                 isDragging ? "opacity-30" : "opacity-100",
-                // Removed scale-105 to prevent position jump on drop
                 isOverlay && "opacity-100 cursor-grabbing shadow-2xl z-50",
             )}
             style={{
@@ -71,7 +67,6 @@ export const Card: React.FC<CardProps> = ({
             {...attributes}
             {...listeners}
         >
-            {/* Image Area */}
             <div
                 className={twMerge(
                     "w-full relative transition-opacity duration-300 overflow-hidden rounded-xl",
@@ -100,12 +95,10 @@ export const Card: React.FC<CardProps> = ({
                 )}
             </div>
 
-            {/* Text Area */}
             <div
                 className="w-full relative flex flex-col items-center justify-center bg-white rounded-xl"
                 style={{ height: `${TEXT_HEIGHT_REM * scale}rem` }}
             >
-                {/* Delete Button (Hover) */}
                 <button
                     className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-gray-200 text-gray-500 hover:bg-red-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all z-20 cursor-pointer"
                     style={{ fontSize: '0.7em' }}

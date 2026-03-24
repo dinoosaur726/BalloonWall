@@ -55,7 +55,6 @@ export default function UpdateNotification() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10000] animate-slide-up">
             <div className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 px-6 py-4 min-w-[400px] max-w-[500px]">
 
-                {/* Available */}
                 {state === 'available' && (
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
@@ -89,7 +88,6 @@ export default function UpdateNotification() {
                     </div>
                 )}
 
-                {/* Downloading */}
                 {state === 'downloading' && (
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
@@ -113,7 +111,6 @@ export default function UpdateNotification() {
                     </div>
                 )}
 
-                {/* Ready to Install */}
                 {state === 'ready' && (
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
@@ -142,7 +139,6 @@ export default function UpdateNotification() {
                     </div>
                 )}
 
-                {/* Up to date */}
                 {state === 'uptodate' && (
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">

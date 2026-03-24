@@ -36,9 +36,6 @@ export const Stack: React.FC<StackProps> = ({ id, x, y, children, onScale }) => 
             style={{
                 left: x,
                 top: y,
-                // Ensure z-index is handled if needed.
-                // transform: `scale(${scale})` ? No, we are scaling children sizing as per previous logic.
-                // We just pass scale to children (Cards).
             }}
         >
             {children}

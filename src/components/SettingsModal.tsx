@@ -11,7 +11,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
-    const store = useStore() // Get full store for actions
+    const store = useStore()
     const { settings, history, setSettings, addCard, loadState } = store
     const [localSettings, setLocalSettings] = useState(() => ({
         ...settings,
@@ -20,7 +20,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'customBalloons' | 'history' | 'saves' | 'about' | 'feedback'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
 
-    // Custom Balloon (추가시그) Form State
     const [newCustomAmount, setNewCustomAmount] = useState<number | ''>('')
     const [newCustomImage, setNewCustomImage] = useState<string>('')
     const [newCustomUseNormal, setNewCustomUseNormal] = useState(true)
@@ -28,7 +27,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const [customBalloonError, setCustomBalloonError] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Saves Management
     const [saveName, setSaveName] = useState('')
     const [savedInstances, setSavedInstances] = useState<string[]>([])
 
@@ -92,7 +90,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         onClose()
     }
 
-    // Translation Map for Tabs
     const tabNames: Record<string, string> = {
         settings: '설정',
         customBalloons: '추가시그',
@@ -106,7 +103,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
             <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl text-white max-h-[90vh] flex flex-col ring-1 ring-white/10">
-                {/* Header & Tabs */}
                 <div className="p-6 pb-0 border-b border-white/10 shrink-0">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -128,11 +124,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {activeTab === 'settings' && (
                         <div className="space-y-8">
-                            {/* Actions */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
                                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">동작</h3>
                                 <button
@@ -147,7 +141,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </button>
                             </div>
 
-                            {/* Network & OBS Settings */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">연동 설정</h3>
 
@@ -210,7 +203,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Automation Settings */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자동화 설정</h3>
 
@@ -248,7 +240,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     )}
                                 </div>
 
-                                {/* Ad Balloon Automation Settings */}
                                 <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -288,9 +279,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                     {activeTab === 'design' && (
                         <div className="space-y-8">
-                            {/* Design Settings */}
                             <div className="space-y-6">
-                                {/* Text Visibility */}
                                 <div className="space-y-3">
                                     <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">텍스트 표시</h3>
                                     <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
@@ -328,7 +317,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                     {activeTab === 'customBalloons' && (
                         <div className="space-y-6">
-                            {/* Add Form */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">추가시그 등록</h3>
                                 <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
@@ -471,7 +459,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* List of Custom Balloons */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">등록 목록</h3>
                                 <div className="space-y-2">
@@ -588,7 +575,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                     {activeTab === 'saves' && (
                         <div className="space-y-6">
-                            {/* 현재 상태 저장 */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">현재 상태 저장</h3>
                                 <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
@@ -613,7 +599,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* 저장 목록 */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">저장 목록</h3>
                                 <div className="space-y-2">
@@ -652,7 +637,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* 초기화 */}
                             <div className="space-y-3 pt-2 border-t border-white/5">
                                 <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">초기화</h3>
                                 {!confirmReset ? (
@@ -695,14 +679,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
                     {activeTab === 'about' && (
                         <div className="space-y-6">
-                            {/* App Info */}
                             <div className="text-center space-y-3 py-4">
                                 <img src={appIcon} alt="App Icon" className="w-20 h-20 mx-auto rounded-2xl shadow-lg shadow-purple-500/20" />
                                 <h3 className="text-xl font-bold text-white">Warudo 풍벽지</h3>
                                 <p className="text-sm text-white/40">버전 {packageJson.version}</p>
                             </div>
 
-                            {/* Streamer Profile */}
                             {(settings.streamerNameProfile || settings.streamerUrlProfile) && (
                                 <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
                                     <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">프로필</h3>
@@ -743,7 +725,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             )}
 
-                            {/* Creator */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
                                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">제작 정보</h3>
                                 <div className="space-y-2">
@@ -768,7 +749,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Third-Party Assets / Copyright */}
                             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
                                 <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider">저작권 및 서드파티 에셋</h3>
                                 <p className="text-[12px] text-white/60 leading-relaxed">
@@ -782,7 +762,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                 </p>
                             </div>
 
-                            {/* Warning */}
                             <div className="p-4 bg-red-500/5 rounded-xl border border-red-500/10">
                                 <p className="text-[11px] text-red-400/70 leading-relaxed text-center">
                                     ⚠️ 본 프로그램의 소스코드 및 구동 방식에 대한 무단 복제·재배포는 법적 조치의 대상이 됩니다.
@@ -796,7 +775,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     )}
                 </div>
 
-                {/* Footer (Cancel/Save) */}
                 {
                     (activeTab === 'settings' || activeTab === 'design' || activeTab === 'customBalloons') && (
                         <div className="flex justify-end gap-3 p-6 border-t border-white/10 bg-[#1e1e1e] rounded-b-2xl shrink-0">
@@ -843,11 +821,11 @@ function FeedbackTab() {
         try {
             const response = await fetch(FEEDBACK_SCRIPT_URL, {
                 method: 'POST',
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     category: categoryLabel,
-                    title: title.trim(), 
+                    title: title.trim(),
                     body: message.trim(),
-                    token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz" 
+                    token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz"
                 }),
                 headers: {
                     'Content-Type': 'text/plain;charset=utf-8'
@@ -876,7 +854,6 @@ function FeedbackTab() {
                 <p className="text-xs text-white/40 mt-1">버그 제보, 기능 제안, 의견을 보내주세요</p>
             </div>
 
-            {/* Category */}
             <div className="flex gap-2">
                 {categories.map(cat => (
                     <button
@@ -892,7 +869,6 @@ function FeedbackTab() {
                 ))}
             </div>
 
-            {/* Title */}
             <div className="space-y-2">
                 <label className="text-xs font-medium text-white/50">제목</label>
                 <input
@@ -903,7 +879,6 @@ function FeedbackTab() {
                 />
             </div>
 
-            {/* Message */}
             <div className="space-y-2">
                 <label className="text-xs font-medium text-white/50">내용</label>
                 <textarea
@@ -915,7 +890,6 @@ function FeedbackTab() {
                 />
             </div>
 
-            {/* Submit */}
             <button
                 onClick={handleSubmit}
                 disabled={!title.trim() || !message.trim() || status === 'sending'}

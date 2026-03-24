@@ -1,4 +1,3 @@
-
 import { isElectron } from './env'
 
 export class BalloonGenerator {
@@ -27,12 +26,12 @@ export class BalloonGenerator {
     }
 
     private static getBalloonImage(amount: number): string {
-        if (amount >= 1 && amount <= 99) return 'assets/ba_step2.png';
-        if (amount >= 100 && amount <= 300) return 'assets/ba_step3.png';
-        if (amount >= 301 && amount <= 999) return 'assets/ba_step4.png';
-        if (amount >= 1000 && amount <= 4999) return 'assets/ba_step5.png';
-        if (amount >= 5000) return 'assets/ba_step6.png';
-        return 'assets/ba_step2.png';
+        if (amount >= 1 && amount <= 99) return 'assets/normaltemplate2.png';
+        if (amount >= 100 && amount <= 300) return 'assets/normaltemplate3.png';
+        if (amount >= 301 && amount <= 999) return 'assets/normaltemplate4.png';
+        if (amount >= 1000 && amount <= 4999) return 'assets/normaltemplate5.png';
+        if (amount >= 5000) return 'assets/normaltemplate6.png';
+        return 'assets/normaltemplate2.png';
     }
 
     private static loadImage(src: string): Promise<HTMLImageElement> {
@@ -54,7 +53,6 @@ export class BalloonGenerator {
                     console.error(`[BalloonGenerator] IPC fetch failed for ${src}, falling back to direct load.`, e);
                 }
             } else if (src.startsWith('http') && !isElectron()) {
-                // Browser mode: try direct fetch (works for CORS-friendly URLs)
                 try {
                     const response = await fetch(src);
                     if (response.ok) {
@@ -67,7 +65,6 @@ export class BalloonGenerator {
             }
 
             const img = new Image();
-            // Only use crossOrigin if it is NOT a data URL and is external
             if (!finalSrc.startsWith('data:') && finalSrc.startsWith('http')) {
                 img.crossOrigin = 'Anonymous';
             }
@@ -76,7 +73,7 @@ export class BalloonGenerator {
                 img.onload = null;
                 img.onerror = null;
                 reject(new Error(`Timeout loading image ${src}`));
-            }, 10000); // Increased timeout
+            }, 10000);
 
             img.onload = () => {
                 clearTimeout(timeout);
@@ -98,7 +95,7 @@ export class BalloonGenerator {
         let isAd = type === 'Ad';
         let isSignatureSource = false;
 
-        // 1. Signature Check (Only for Normal balloons)
+        // Priority: 1. Signature -> 2. Custom -> 3. Standard External -> 4. Ad External -> 5. Local fallback
         if (!isAd && sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
             balloonSrc = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
             isExternal = true;
@@ -106,7 +103,6 @@ export class BalloonGenerator {
             this.log(`Attempting to load signature balloon: ${balloonSrc}`);
         }
 
-        // 2. Custom Balloon Check (추가시그)
         if (!isExternal && sigConfig?.customBalloons) {
             const match = sigConfig.customBalloons.find(cb =>
                 cb.amount === amount &&
@@ -120,26 +116,20 @@ export class BalloonGenerator {
             }
         }
 
-        // 3. Standard External Check (If not signature/custom and Normal)
         if (!isExternal && !isAd) {
-            // Try the standard external URL first
             const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
             try {
-                // Heuristic: Set it here, check load later.
                 balloonSrc = standardUrl;
                 isExternal = true;
             } catch (e) {
-                // Ignored
             }
         }
 
-        // 4. Ad Balloon External Check
         if (isAd && !isCustom) {
             balloonSrc = `https://static.file.sooplive.co.kr/adballoon/ceremony/mobile_${amount}.png`;
             isExternal = true;
         }
 
-        // Custom balloons: load image, stretch to fit, return
         if (isCustom) {
             try {
                 const customImg = await this.loadImage(balloonSrc);
@@ -160,9 +150,7 @@ export class BalloonGenerator {
         try {
             let balloonImg: HTMLImageElement;
 
-            // Load Balloon with fallback chain
             const loadBalloon = async (): Promise<HTMLImageElement> => {
-                // Try primary source first
                 try {
                     if (!isExternal && !isAd) {
                         balloonSrc = this.getBalloonImage(amount);
@@ -172,13 +160,12 @@ export class BalloonGenerator {
                     this.log(`External load failed for ${balloonSrc}. Falling back.`);
 
                     if (isAd) {
-                        balloonSrc = 'assets/ad.png';
+                        balloonSrc = 'assets/adtemplate.png';
                         isExternal = false;
                         return await this.loadImage(balloonSrc);
                     }
 
                     if (sigConfig?.signatureBalloons.includes(amount)) {
-                        // Signature failed -> try Custom -> Standard External -> Local
                         isSignatureSource = false;
                         if (sigConfig?.customBalloons) {
                             const match = sigConfig.customBalloons.find(cb => cb.amount === amount && cb.useForNormal);
@@ -186,24 +173,22 @@ export class BalloonGenerator {
                                 try {
                                     isExternal = true;
                                     return await this.loadImage(match.imageDataUrl);
-                                } catch (_) { /* continue fallback */ }
+                                } catch (_) { }
                             }
                         }
                         try {
                             const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
                             isExternal = true;
                             return await this.loadImage(standardUrl);
-                        } catch (_) { /* continue fallback */ }
+                        } catch (_) { }
                     } else if (isCustom) {
-                        // Custom failed -> try Standard External -> Local
                         try {
                             const standardUrl = `https://res.sooplive.co.kr/new_player/items/m_balloon_${amount}.png`;
                             isExternal = true;
                             return await this.loadImage(standardUrl);
-                        } catch (_) { /* continue fallback */ }
+                        } catch (_) { }
                     }
 
-                    // Final local fallback
                     balloonSrc = this.getBalloonImage(amount);
                     isExternal = false;
                     return await this.loadImage(balloonSrc);
@@ -212,7 +197,7 @@ export class BalloonGenerator {
 
             balloonImg = await loadBalloon();
 
-            // Crop external balloon images: signature → bottom 293x163, standard → bottom 293x174
+            // Crop external images: signature -> bottom 293x163, standard -> bottom 293x174
             if (isExternal && balloonImg.width === 293 && balloonImg.height === 248) {
                 const cropH = isSignatureSource ? 163 : 174;
                 const cropY = 248 - cropH;
@@ -230,18 +215,14 @@ export class BalloonGenerator {
                 }
             }
 
-            // Canvas sized to balloon image only (Card component handles text area separately)
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) throw new Error('Could not get canvas context');
 
             canvas.width = balloonImg.width;
             canvas.height = balloonImg.height;
-
-            // 1. Draw Balloon at (0,0)
             ctx.drawImage(balloonImg, 0, 0);
 
-            // 2. Draw Amount on Balloon (ONLY IF NOT EXTERNAL AND NOT AD)
             if (!isExternal && !isAd) {
                 await this.loadFont();
 
@@ -262,7 +243,7 @@ export class BalloonGenerator {
                 ctx.fillText(amountText, balloonCenterX, amountY);
             }
 
-            // Crop local/ad balloon images to bottom 293x162
+            // Crop local/ad images to bottom 293x162
             let sourceForStretch: HTMLCanvasElement = canvas;
             if (!isExternal) {
                 const cropH = 162;
@@ -277,7 +258,7 @@ export class BalloonGenerator {
                 }
             }
 
-            // Stretch all images to fit card image dimensions (480x285, 16:9.5)
+            // Stretch to 480x285 (16:9.5)
             const stretched = document.createElement('canvas');
             stretched.width = 480;
             stretched.height = 285;

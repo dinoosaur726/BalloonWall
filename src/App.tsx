@@ -34,19 +34,14 @@ declare module 'react' {
   }
 }
 
-// Global window type is handled by electron-env.d.ts
-
 function App() {
   const { stacks, cards, settings, handleDonation, moveCardsToStack, moveCardsToCanvas, initSettings, updateStackScale, loadState } = useStore()
 
   const inElectron = isElectron()
 
-
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [dragStartPos, setDragStartPos] = useState<{ x: number, y: number } | null>(null)
-
-  // WebSocket ref for browser mode
   const wsRef = useRef<WebSocket | null>(null)
 
   const { setNodeRef: setCanvasRef } = useDroppable({
@@ -62,10 +57,8 @@ function App() {
     useSensor(TouchSensor)
   )
 
-  // Initialize and Listeners
   useEffect(() => {
     if (inElectron) {
-      // ─── Electron Mode ───
       window.ipcRenderer.invoke('get-settings').then((savedSettings) => {
         if (savedSettings) initSettings(savedSettings)
       }).catch(err => console.error(err))
@@ -75,11 +68,9 @@ function App() {
         handleDonation(data.type, data.nickname, data.amount)
       }
 
-      // Defensive: Remove any existing listeners first
       window.ipcRenderer.removeAllListeners('new-donation')
       window.ipcRenderer.on('new-donation', handleNewDonation)
 
-      // Global Hotkey: Escape opens settings (Exit Broadcast Mode)
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           setShowSettings(prev => !prev)
@@ -92,10 +83,7 @@ function App() {
         window.removeEventListener('keydown', handleKeyDown)
       }
     } else {
-      // ─── Browser Mode (OBS Browser Source) ───
-      // Connect to WebSocket server to receive state updates
       const connectWs = () => {
-        // Determine WS port from URL params or default
         const urlParams = new URLSearchParams(window.location.search)
         const wsPort = urlParams.get('wsPort') || '3005'
         const wsHost = window.location.hostname || 'localhost'
@@ -115,7 +103,6 @@ function App() {
 
             if (msg.type === 'full-state' || msg.type === 'state-update') {
               const { cards, stacks, settings: syncSettings, history } = msg.payload
-              // Load the synced state into the store
               loadState({
                 cards: cards || {},
                 stacks: stacks || {},
@@ -150,24 +137,19 @@ function App() {
     }
   }, [])
 
-  // Drag Logic
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
-
-    // Find source stack to store initial position
     const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(event.active.id as string))
     if (sourceStackEntry) {
       setDragStartPos({ x: sourceStackEntry.x, y: sourceStackEntry.y })
     }
   }
 
-  // Helper to find dragged group
   const getDraggedGroup = (activeId: string | null) => {
     if (!activeId) return []
     const sourceStackEntry = Object.values(stacks).find(s => s.cardIds.includes(activeId))
     if (!sourceStackEntry) return []
     const index = sourceStackEntry.cardIds.indexOf(activeId)
-    // Select index and everything BEFORE it (Top of stack)
     return sourceStackEntry.cardIds.slice(0, index + 1)
   }
 
@@ -179,11 +161,8 @@ function App() {
     const draggedGroup = getDraggedGroup(active.id as string)
     if (draggedGroup.length === 0) return
 
-    // Case 1: Dropped on another Stack (Merge)
     if (over && over.id !== 'canvas') {
       let targetStackId = over.id as string
-
-      // If dropped on a card, find its stack
       const targetStackEntry = Object.entries(stacks).find(([sId, s]) => sId === targetStackId || s.cardIds.includes(targetStackId))
       if (targetStackEntry) {
         targetStackId = targetStackEntry[0]
@@ -192,7 +171,6 @@ function App() {
       }
     }
 
-    // Case 2: Dropped on Canvas -> Move/Create Stack
     if (dragStartPos) {
       const newX = dragStartPos.x + delta.x
       const newY = dragStartPos.y + delta.y
@@ -210,15 +188,12 @@ function App() {
       let finalX = newX
       let finalY = newY
 
-      // --- Window Edge Snapping ---
       if (finalX < SNAP_DIST_PX) finalX = 0
       if (finalY < SNAP_DIST_PX) finalY = 0
       if (finalX + cardWidth > WINDOW_W - SNAP_DIST_PX) finalX = WINDOW_W - cardWidth
       if (finalY + totalHeight > WINDOW_H - SNAP_DIST_PX) finalY = WINDOW_H - totalHeight
 
-      // --- Stack-to-Stack Side Snapping ---
       for (const stack of Object.values(stacks)) {
-        // Skip self if moving whole stack with same ID (though usually we split off)
         if (activeId && stack.cardIds.includes(activeId) && draggedGroup.length === stack.cardIds.length) {
           continue
         }
@@ -226,13 +201,11 @@ function App() {
         const otherScale = stack.scale
         const otherW = CARD_WIDTH_REM * REM * otherScale
 
-        // Snap to Right Side of Other
         if (Math.abs(finalX - (stack.x + otherW)) < SNAP_DIST_PX) {
           finalX = stack.x + otherW + 1
           if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
         }
 
-        // Snap to Left Side of Other
         if (Math.abs((finalX + cardWidth) - stack.x) < SNAP_DIST_PX) {
           finalX = stack.x - cardWidth - 1
           if (Math.abs(finalY - stack.y) < SNAP_DIST_PX) finalY = stack.y
@@ -245,12 +218,8 @@ function App() {
 
   const draggedGroupCards = getDraggedGroup(activeId)
 
-  // ─── Background Logic ───
-  // Browser mode: always transparent
-  // Electron mode: follows settings
   const getBackgroundClass = () => {
     if (!inElectron) {
-      // OBS Browser Source: always transparent
       return 'bg-transparent'
     }
     return 'bg-[#222]'
@@ -264,7 +233,6 @@ function App() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        {/* Custom Drag Handle — Electron only */}
         {inElectron && (
           <div
             className="fixed top-0 left-0 w-full h-8 z-[9000] transition-opacity hover:bg-white/10 block cursor-move"
@@ -272,7 +240,6 @@ function App() {
           />
         )}
 
-        {/* Settings Button — Electron only */}
         {inElectron && (
           <button
             onClick={() => setShowSettings(true)}
@@ -286,16 +253,10 @@ function App() {
           </button>
         )}
 
-        {/* Settings Modal — Electron only */}
         {inElectron && showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-
-        {/* Update Notification — Electron only */}
         {inElectron && <UpdateNotification />}
-
-        {/* Welcome Modal — Electron only */}
         {inElectron && settings.hasCompletedWelcome === false && <WelcomeModal />}
 
-        {/* Main Typeset / Canvas */}
         <div
           ref={setCanvasRef}
           className={`relative w-full h-full pointer-events-auto transition-colors duration-300 overflow-hidden ${getBackgroundClass()}`}

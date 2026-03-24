@@ -24,25 +24,22 @@ export const WelcomeModal: React.FC = () => {
         setError(null)
 
         try {
-            // First send to Google Apps Script
             const response = await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                body: JSON.stringify({ 
-                    streamerName, 
+                body: JSON.stringify({
+                    streamerName,
                     streamerUrl,
-                    token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz" 
+                    token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz"
                 }),
                 headers: {
-                    'Content-Type': 'text/plain;charset=utf-8' // GAS requires text/plain for CORS sometimes
+                    'Content-Type': 'text/plain;charset=utf-8'
                 }
             })
 
             if (!response.ok) {
                 console.warn('Google Script returned non-ok status', response.status)
-                // Continue anyway to not hard-block the user if the script fails occasionally
             }
 
-            // Save locally and complete welcome
             const newSettings = {
                 streamerNameProfile: streamerName,
                 streamerUrlProfile: streamerUrl,
@@ -57,8 +54,6 @@ export const WelcomeModal: React.FC = () => {
 
         } catch (err: any) {
             console.error('Failed to submit welcome info:', err)
-            // Even if it fails (e.g., no internet), we probably should let them in or show error
-            // To ensure they can use the app, let's just let them in.
             const newSettings = {
                 streamerNameProfile: streamerName,
                 streamerUrlProfile: streamerUrl,
@@ -77,7 +72,6 @@ export const WelcomeModal: React.FC = () => {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-in fade-in zoom-in-95 duration-300">
             <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col ring-1 ring-white/10 relative">
 
-                {/* Decorative Head */}
                 <div className="h-32 bg-gradient-to-br from-indigo-600/20 via-purple-600/20 to-blue-600/20 absolute top-0 left-0 w-full z-0 flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
                 </div>
