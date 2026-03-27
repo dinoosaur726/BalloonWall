@@ -34,6 +34,18 @@ export class BalloonGenerator {
         return 'assets/normaltemplate2.png';
     }
 
+    private static getChallengeImage(amount: number): string {
+        if (amount >= 1000) return 'assets/challenge03.png';
+        if (amount >= 100) return 'assets/challenge02.png';
+        return 'assets/challenge01.png';
+    }
+
+    private static getBattleImage(amount: number): string {
+        if (amount >= 1000) return 'assets/battle03.png';
+        if (amount >= 100) return 'assets/battle02.png';
+        return 'assets/battle01.png';
+    }
+
     private static loadImage(src: string): Promise<HTMLImageElement> {
         return new Promise(async (resolve, reject) => {
             console.log(`[BalloonGenerator] Loading image: ${src}`);
@@ -88,12 +100,85 @@ export class BalloonGenerator {
         });
     }
 
-    static async generate(_nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[], customBalloons?: { id: string, amount: number, imageDataUrl: string, useForNormal: boolean, useForAd: boolean }[] }, type: 'Normal' | 'Ad' = 'Normal'): Promise<{ imageUrl: string, isCustom: boolean }> {
+    static async generate(_nickname: string, amount: number, sigConfig?: { streamerId?: string, signatureBalloons: number[], customBalloons?: { id: string, amount: number, imageDataUrl: string, useForNormal: boolean, useForAd: boolean, useForChallenge?: boolean, useForBattle?: boolean }[], useSignatureForMissions?: boolean }, type: 'Normal' | 'Ad' | 'Challenge' | 'Battle' = 'Normal'): Promise<{ imageUrl: string, isCustom: boolean }> {
         let balloonSrc = '';
         let isExternal = false;
         let isCustom = false;
         let isAd = type === 'Ad';
+        let isChallenge = type === 'Challenge';
+        let isBattle = type === 'Battle';
+        let isMission = isChallenge || isBattle;
         let isSignatureSource = false;
+
+        // For Challenge/Battle: 1. Signature (if enabled) -> 2. Custom -> 3. Local fallback
+        if (isMission) {
+            // Check signature
+            if (sigConfig?.useSignatureForMissions && sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {
+                const sigUrl = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
+                try {
+                    let sigImg = await this.loadImage(sigUrl);
+                    // Crop: signature -> bottom 293x163
+                    if (sigImg.width === 293 && sigImg.height === 248) {
+                        const cropCanvas = document.createElement('canvas');
+                        cropCanvas.width = 293;
+                        cropCanvas.height = 163;
+                        const cropCtx = cropCanvas.getContext('2d');
+                        if (cropCtx) {
+                            cropCtx.drawImage(sigImg, 0, 248 - 163, 293, 163, 0, 0, 293, 163);
+                            sigImg = new Image();
+                            await new Promise<void>((resolve) => {
+                                sigImg.onload = () => resolve();
+                                sigImg.src = cropCanvas.toDataURL('image/png');
+                            });
+                        }
+                    }
+                    const stretched = document.createElement('canvas');
+                    stretched.width = 480;
+                    stretched.height = 285;
+                    const sCtx = stretched.getContext('2d');
+                    if (sCtx) sCtx.drawImage(sigImg, 0, 0, 480, 285);
+                    return { imageUrl: stretched.toDataURL('image/png'), isCustom: false };
+                } catch (e) {
+                    this.log(`Signature load failed for ${type}, trying custom/local fallback: ${e}`);
+                }
+            }
+
+            // Check custom balloons
+            if (sigConfig?.customBalloons) {
+                const match = sigConfig.customBalloons.find(cb =>
+                    cb.amount === amount &&
+                    (isChallenge ? cb.useForChallenge : cb.useForBattle)
+                );
+                if (match) {
+                    try {
+                        const customImg = await this.loadImage(match.imageDataUrl);
+                        const stretched = document.createElement('canvas');
+                        stretched.width = 480;
+                        stretched.height = 285;
+                        const sCtx = stretched.getContext('2d');
+                        if (sCtx) sCtx.drawImage(customImg, 0, 0, 480, 285);
+                        return { imageUrl: stretched.toDataURL('image/png'), isCustom: true };
+                    } catch (e) {
+                        this.log(`Custom balloon load failed for ${type}: ${e}`);
+                    }
+                }
+            }
+
+            // Local fallback
+            balloonSrc = isChallenge ? this.getChallengeImage(amount) : this.getBattleImage(amount);
+            try {
+                const balloonImg = await this.loadImage(balloonSrc);
+                const stretched = document.createElement('canvas');
+                stretched.width = 480;
+                stretched.height = 285;
+                const sCtx = stretched.getContext('2d');
+                if (sCtx) sCtx.drawImage(balloonImg, 0, 0, 480, 285);
+                return { imageUrl: stretched.toDataURL('image/png'), isCustom: false };
+            } catch (error) {
+                this.log(`${type} balloon generation failed: ${error}`);
+                throw error;
+            }
+        }
 
         // Priority: 1. Signature -> 2. Custom -> 3. Standard External -> 4. Ad External -> 5. Local fallback
         if (!isAd && sigConfig?.streamerId && sigConfig.signatureBalloons.includes(amount)) {

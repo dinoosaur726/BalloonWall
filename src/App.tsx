@@ -44,6 +44,7 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [dragStartPos, setDragStartPos] = useState<{ x: number, y: number } | null>(null)
+  const [patchNotesDismissed, setPatchNotesDismissed] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
   const { setNodeRef: setCanvasRef } = useDroppable({
@@ -65,7 +66,7 @@ function App() {
         if (savedSettings) initSettings(savedSettings)
       }).catch(err => console.error(err))
 
-      const handleNewDonation = (_event: any, data: { type: 'Normal' | 'Ad', nickname: string, amount: number }) => {
+      const handleNewDonation = (_event: any, data: { type: 'Normal' | 'Ad' | 'Challenge' | 'Battle', nickname: string, amount: number }) => {
         window.ipcRenderer.send('log', `[App] Received donation: ${data.type}/${data.nickname}/${data.amount}`);
         handleDonation(data.type, data.nickname, data.amount)
       }
@@ -264,7 +265,7 @@ function App() {
         {inElectron && showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
         {inElectron && <UpdateNotification />}
         {inElectron && settings.hasCompletedWelcome === false && <WelcomeModal />}
-        {inElectron && settings.hasCompletedWelcome !== false && settings.lastSeenPatchNotes !== packageJson.version && <PatchNotesModal />}
+        {inElectron && settings.hasCompletedWelcome !== false && settings.lastSeenPatchNotes !== packageJson.version && !patchNotesDismissed && <PatchNotesModal onDismiss={() => setPatchNotesDismissed(true)} />}
 
         <div
           ref={setCanvasRef}

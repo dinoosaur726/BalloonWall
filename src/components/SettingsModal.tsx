@@ -6,6 +6,25 @@ import appIcon from '../../build/icon.png'
 import { isElectron } from '../utils/env'
 import packageJson from '../../package.json'
 
+const UPDATE_LOG = [
+    {
+        version: '1.3.0',
+        items: [
+            { title: '도전미션/대결미션 풍선 추가', description: '도전미션과 대결미션 풍선 유형이 새로 추가되었습니다. 개수에 따라 3단계 이미지가 적용됩니다. ⚠️ 도전미션/대결미션을 지원하려면 와루도 블루프린트를 새 버전으로 교체해야 합니다. 블루프린트를 다운받은 후, 기존 블루프린트 삭제 → 새 블루프린트 임포트를 진행해주세요. 블루프린트 교체 방법을 모르시는 분들을 위한 안내 영상도 같은 링크에 업로드되어 있습니다.', link: 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing' },
+            { title: '도전미션/대결미션 자동화 설정', description: '설정에서 도전미션과 대결미션 각각의 자동 카드 생성 및 최소 금액을 별도로 설정할 수 있습니다.' },
+            { title: '시그니처/추가시그 미션 지원', description: '시그니처 이미지와 추가시그(커스텀 이미지)를 도전미션·대결미션에도 적용할 수 있는 옵션이 추가되었습니다.' },
+            { title: '업데이트 로그 탭 추가', description: '설정에서 모든 과거 업데이트 내역을 확인할 수 있습니다.' },
+        ]
+    },
+    {
+        version: '1.2.0',
+        items: [
+            { title: '카드 간 스냅 토글 추가', description: '설정 > 디자인에서 카드 간 스냅 기능을 끌 수 있습니다. 끄면 카드를 더 자유롭게 배치할 수 있으며, 벽면 스냅은 그대로 유지됩니다.' },
+            { title: '크기 조절 시 주변 카드 밀기/당기기 제거', description: '카드 크기를 조절할 때 주변 카드가 밀리거나 당겨지던 동작을 제거했습니다. 버그가 잦아 삭제 조치하였습니다.' },
+        ]
+    }
+]
+
 interface SettingsModalProps {
     onClose: () => void
 }
@@ -17,13 +36,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         ...settings,
         design: settings.design || { showNickname: true, showAmount: true }
     }))
-    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'customBalloons' | 'history' | 'saves' | 'about' | 'feedback'>('settings')
+    const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'customBalloons' | 'history' | 'saves' | 'updateLog' | 'about' | 'feedback'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
 
     const [newCustomAmount, setNewCustomAmount] = useState<number | ''>('')
     const [newCustomImage, setNewCustomImage] = useState<string>('')
     const [newCustomUseNormal, setNewCustomUseNormal] = useState(true)
     const [newCustomUseAd, setNewCustomUseAd] = useState(false)
+    const [newCustomUseChallenge, setNewCustomUseChallenge] = useState(false)
+    const [newCustomUseBattle, setNewCustomUseBattle] = useState(false)
     const [customBalloonError, setCustomBalloonError] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -96,6 +117,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         design: '디자인',
         history: '기록',
         saves: '저장',
+        updateLog: '업데이트 로그',
         about: '정보',
         feedback: '피드백'
     }
@@ -112,7 +134,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     </div>
 
                     <div className="flex gap-6">
-                        {['settings', 'customBalloons', 'design', 'history', 'saves', 'about', 'feedback'].map((tab) => (
+                        {['settings', 'customBalloons', 'design', 'history', 'saves', 'updateLog', 'about', 'feedback'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -199,6 +221,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                             * 스트리머 아이디와 시그니처 풍선 개수를 설정하면, 해당 개수의 별풍선 선물 시
                                             자동으로 방송국의 시그니처 이미지를 불러옵니다.
                                         </div>
+                                        <div className="col-span-2 pt-2 border-t border-white/5">
+                                            <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={localSettings.useSignatureForMissions || false}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, useSignatureForMissions: e.target.checked })}
+                                                    className="rounded border-white/20 bg-black/20 text-blue-500 focus:ring-blue-500/50"
+                                                />
+                                                도전미션/대결미션에도 시그니처 이미지 사용
+                                            </label>
+                                            <p className="text-[11px] text-white/30 mt-1 ml-6">
+                                                체크 시 도전미션·대결미션 개수가 시그니처 개수와 일치하면 시그니처 이미지를 사용합니다.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -266,6 +302,74 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                     type="number"
                                                     value={localSettings.minAmountAd !== undefined ? localSettings.minAmountAd : 0}
                                                     onChange={(e) => setLocalSettings({ ...localSettings, minAmountAd: parseInt(e.target.value) || 0 })}
+                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                />
+                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-sm font-medium text-white/90">도전미션 자동 카드 생성</div>
+                                            <div className="text-xs text-white/50 mt-0.5">
+                                                {localSettings.autoAddChallenge !== false ? '도전미션 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setLocalSettings({ ...localSettings, autoAddChallenge: localSettings.autoAddChallenge === false ? true : false })}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddChallenge !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddChallenge !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    {localSettings.autoAddChallenge !== false && (
+                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
+                                                도전미션 최소 금액 설정 (OO개 이상만 제작)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    value={localSettings.minAmountChallenge !== undefined ? localSettings.minAmountChallenge : 0}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountChallenge: parseInt(e.target.value) || 0 })}
+                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
+                                                />
+                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-sm font-medium text-white/90">대결미션 자동 카드 생성</div>
+                                            <div className="text-xs text-white/50 mt-0.5">
+                                                {localSettings.autoAddBattle !== false ? '대결미션 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setLocalSettings({ ...localSettings, autoAddBattle: localSettings.autoAddBattle === false ? true : false })}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddBattle !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddBattle !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    {localSettings.autoAddBattle !== false && (
+                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
+                                                대결미션 최소 금액 설정 (OO개 이상만 제작)
+                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    value={localSettings.minAmountBattle !== undefined ? localSettings.minAmountBattle : 0}
+                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountBattle: parseInt(e.target.value) || 0 })}
                                                     className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
                                                 />
                                                 <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
@@ -389,7 +493,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-6">
+                                    <div className="flex flex-wrap gap-4">
                                         <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
                                             <input
                                                 type="checkbox"
@@ -407,6 +511,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                 className="rounded border-white/20 bg-black/20 text-emerald-500 focus:ring-emerald-500/50"
                                             />
                                             애드벌룬 적용
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={newCustomUseChallenge}
+                                                onChange={(e) => setNewCustomUseChallenge(e.target.checked)}
+                                                className="rounded border-white/20 bg-black/20 text-amber-500 focus:ring-amber-500/50"
+                                            />
+                                            도전미션 적용
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={newCustomUseBattle}
+                                                onChange={(e) => setNewCustomUseBattle(e.target.checked)}
+                                                className="rounded border-white/20 bg-black/20 text-rose-500 focus:ring-rose-500/50"
+                                            />
+                                            대결미션 적용
                                         </label>
                                     </div>
 
@@ -426,7 +548,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                 setCustomBalloonError('이미지를 선택해주세요.')
                                                 return
                                             }
-                                            if (!newCustomUseNormal && !newCustomUseAd) {
+                                            if (!newCustomUseNormal && !newCustomUseAd && !newCustomUseChallenge && !newCustomUseBattle) {
                                                 setCustomBalloonError('최소 하나의 유형을 선택해주세요.')
                                                 return
                                             }
@@ -452,7 +574,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                 amount: newCustomAmount,
                                                 imageDataUrl: newCustomImage,
                                                 useForNormal: newCustomUseNormal,
-                                                useForAd: newCustomUseAd
+                                                useForAd: newCustomUseAd,
+                                                useForChallenge: newCustomUseChallenge,
+                                                useForBattle: newCustomUseBattle
                                             }
 
                                             const updatedCustomBalloons = [...existing, newEntry]
@@ -470,6 +594,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                             setNewCustomImage('')
                                             setNewCustomUseNormal(true)
                                             setNewCustomUseAd(false)
+                                            setNewCustomUseChallenge(false)
+                                            setNewCustomUseBattle(false)
                                         }}
                                         className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
                                     >
@@ -487,12 +613,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                 <img src={cb.imageDataUrl} alt={`${cb.amount}`} className="w-10 h-10 object-contain rounded border border-white/10" />
                                                 <div>
                                                     <span className="font-medium text-white/90">{cb.amount.toLocaleString()}개</span>
-                                                    <div className="flex gap-2 mt-0.5">
+                                                    <div className="flex gap-2 mt-0.5 flex-wrap">
                                                         {cb.useForNormal && (
                                                             <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">별풍선</span>
                                                         )}
                                                         {cb.useForAd && (
                                                             <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">애드벌룬</span>
+                                                        )}
+                                                        {cb.useForChallenge && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30">도전미션</span>
+                                                        )}
+                                                        {cb.useForBattle && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold border border-rose-500/30">대결미션</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -562,10 +694,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                         {item.type === 'Ad' && (
                                                             <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 w-fit">애드벌룬</span>
                                                         )}
+                                                        {item.type === 'Challenge' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30 w-fit">도전미션</span>
+                                                        )}
+                                                        {item.type === 'Battle' && (
+                                                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold border border-rose-500/30 w-fit">대결미션</span>
+                                                        )}
                                                         {item.nickname}
                                                     </span>
                                                 </td>
-                                                <td className={`px-4 py-3 font-bold ${item.type === 'Ad' ? 'text-emerald-400' : 'text-blue-400'}`}>{item.amount.toLocaleString()}</td>
+                                                <td className={`px-4 py-3 font-bold ${item.type === 'Ad' ? 'text-emerald-400' : item.type === 'Challenge' ? 'text-amber-400' : item.type === 'Battle' ? 'text-rose-400' : 'text-blue-400'}`}>{item.amount.toLocaleString()}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <button
                                                         onClick={() => {
@@ -786,6 +924,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     ⚠️ 본 프로그램의 소스코드 및 구동 방식에 대한 무단 복제·재배포는 법적 조치의 대상이 됩니다.
                                 </p>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'updateLog' && (
+                        <div className="space-y-6">
+                            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider mb-2">업데이트 로그</h3>
+
+                            {UPDATE_LOG.map((entry, idx) => (
+                                <div key={idx} className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-white">v{entry.version}</span>
+                                        {idx === 0 && (
+                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">최신</span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-3">
+                                        {entry.items.map((item, i) => (
+                                            <div key={i} className="flex gap-3">
+                                                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold flex items-center justify-center border border-blue-500/30">{i + 1}</span>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-white/90 mb-0.5">{item.title}</p>
+                                                    <p className="text-xs text-white/50 leading-relaxed">{item.description}</p>
+                                                    {'link' in item && (item as any).link && (
+                                                        <button
+                                                            onClick={() => {
+                                                                const url = (item as any).link
+                                                                if (isElectron() && window.ipcRenderer) {
+                                                                    window.ipcRenderer.send('open-external', url)
+                                                                } else {
+                                                                    window.open(url, '_blank')
+                                                                }
+                                                            }}
+                                                            className="mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer"
+                                                        >
+                                                            블루프린트 다운로드 (구글 드라이브)
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
 

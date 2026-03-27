@@ -216,7 +216,10 @@ function startWebSocketServer(port: number) {
           if (parts.length === 3) {
             const [typeStr, nickname, amountStr] = parts
             const amount = parseInt(amountStr, 10)
-            const type = typeStr === 'Ad' ? 'Ad' : 'Normal'
+            const type = typeStr === 'Ad' ? 'Ad'
+              : typeStr === 'Challenge' ? 'Challenge'
+              : typeStr === 'Battle' ? 'Battle'
+              : 'Normal'
             if (!isNaN(amount) && win) {
               win.webContents.send('new-donation', { type, nickname, amount })
             }

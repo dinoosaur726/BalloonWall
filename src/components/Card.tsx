@@ -15,7 +15,7 @@ interface CardProps {
     nickname: string
     amount: number
     imageUrl: string
-    type?: 'Normal' | 'Ad'
+    type?: 'Normal' | 'Ad' | 'Challenge' | 'Battle'
     textColor?: string
     index: number
     isOverlay?: boolean
@@ -47,6 +47,9 @@ export const Card: React.FC<CardProps> = ({
         data: { index, type: 'CARD' },
         disabled: isOverlay
     })
+
+    const isMission = type === 'Challenge' || type === 'Battle'
+    const isNullNickname = isMission && nickname === 'NULL12345'
 
     const currentWidthRem = CARD_WIDTH_REM * scale
     const nicknameSize = `${0.9 * scale}rem`
@@ -111,7 +114,7 @@ export const Card: React.FC<CardProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                 </button>
 
-                {design.showNickname && (
+                {design.showNickname && !isNullNickname && (
                     <div
                         className="truncate w-[90%] text-center text-[#ff0808]"
                         style={{
@@ -135,7 +138,10 @@ export const Card: React.FC<CardProps> = ({
                             fontWeight: 800
                         }}
                     >
-                        {type === 'Ad' ? `애드벌룬 ${amount.toLocaleString()}개` : `별풍선 ${amount.toLocaleString()}개`}
+                        {type === 'Ad' ? `애드벌룬 ${amount.toLocaleString()}개`
+                            : type === 'Challenge' ? `도전미션 ${amount.toLocaleString()}개`
+                            : type === 'Battle' ? `대결미션 ${amount.toLocaleString()}개`
+                            : `별풍선 ${amount.toLocaleString()}개`}
                     </div>
                 )}
             </div>

@@ -11,7 +11,7 @@ import {
 
 interface CardData {
     id: string
-    type?: 'Normal' | 'Ad'
+    type?: 'Normal' | 'Ad' | 'Challenge' | 'Battle'
     nickname: string
     amount: number
     imageUrl: string
@@ -25,6 +25,8 @@ export interface CustomBalloon {
     imageDataUrl: string
     useForNormal: boolean
     useForAd: boolean
+    useForChallenge?: boolean
+    useForBattle?: boolean
 }
 
 export interface Stack {
@@ -55,6 +57,11 @@ interface Settings {
     minAmount: number
     autoAddAd: boolean
     minAmountAd: number
+    autoAddChallenge: boolean
+    minAmountChallenge: number
+    autoAddBattle: boolean
+    minAmountBattle: number
+    useSignatureForMissions?: boolean
     snapToStacks: boolean
     lastSeenPatchNotes?: string
     design: {
@@ -148,8 +155,8 @@ interface GameState {
     stacks: Record<string, Stack>
     settings: Settings
 
-    handleDonation: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void
-    addCard: (type: 'Normal' | 'Ad', nickname: string, amount: number) => void
+    handleDonation: (type: 'Normal' | 'Ad' | 'Challenge' | 'Battle', nickname: string, amount: number) => void
+    addCard: (type: 'Normal' | 'Ad' | 'Challenge' | 'Battle', nickname: string, amount: number) => void
 
     createStack: (cardIds: string[], x: number, y: number) => void
     moveCardsToStack: (cardIds: string[], targetStackId: string) => void
@@ -161,7 +168,7 @@ interface GameState {
 
     moveStack: (stackId: string, x: number, y: number) => void
 
-    history: { id: string, type?: 'Normal' | 'Ad', nickname: string, amount: number, timestamp: number }[]
+    history: { id: string, type?: 'Normal' | 'Ad' | 'Challenge' | 'Battle', nickname: string, amount: number, timestamp: number }[]
     loadState: (state: GameState) => void
     resetState: () => void
 
@@ -190,6 +197,10 @@ export const useStore = create<GameState>((set, get) => ({
         minAmount: 0,
         autoAddAd: true,
         minAmountAd: 0,
+        autoAddChallenge: true,
+        minAmountChallenge: 0,
+        autoAddBattle: true,
+        minAmountBattle: 0,
         snapToStacks: true,
         lastSeenPatchNotes: '',
         design: {
@@ -201,10 +212,14 @@ export const useStore = create<GameState>((set, get) => ({
     handleDonation: (type, nickname, amount) => {
         const { settings, addCard } = get()
 
+        const displayNickname = nickname === 'NULL12345'
+            ? (type === 'Battle' ? '대결미션정산' : type === 'Challenge' ? '미션성공' : nickname)
+            : nickname
+
         const historyItem = {
             id: uuidv4(),
             type,
-            nickname,
+            nickname: displayNickname,
             amount,
             timestamp: Date.now()
         }
@@ -212,6 +227,14 @@ export const useStore = create<GameState>((set, get) => ({
 
         if (type === 'Ad') {
             if (settings.autoAddAd && amount >= settings.minAmountAd) {
+                addCard(type, nickname, amount)
+            }
+        } else if (type === 'Challenge') {
+            if (settings.autoAddChallenge && amount >= settings.minAmountChallenge) {
+                addCard(type, nickname, amount)
+            }
+        } else if (type === 'Battle') {
+            if (settings.autoAddBattle && amount >= settings.minAmountBattle) {
                 addCard(type, nickname, amount)
             }
         } else {
@@ -241,12 +264,13 @@ export const useStore = create<GameState>((set, get) => ({
             useGenerator = true
         }
 
-        if (useGenerator || type === 'Ad') {
+        if (useGenerator || type === 'Ad' || type === 'Challenge' || type === 'Battle') {
             try {
                 const sigConfig = {
                     streamerId: settings.streamerId,
                     signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : [],
-                    customBalloons: settings.customBalloons || []
+                    customBalloons: settings.customBalloons || [],
+                    useSignatureForMissions: settings.useSignatureForMissions || false
                 };
 
                 const result = await BalloonGenerator.generate(nickname, amount, sigConfig, type)
@@ -523,7 +547,8 @@ export const useStore = create<GameState>((set, get) => ({
         const sigConfig = {
             streamerId: settings.streamerId,
             signatureBalloons: settings.signatureBalloons ? settings.signatureBalloons.split(' ').map(s => parseInt(s)).filter(n => !isNaN(n)) : [],
-            customBalloons: settings.customBalloons || []
+            customBalloons: settings.customBalloons || [],
+            useSignatureForMissions: settings.useSignatureForMissions || false
         };
 
         const updates: Record<string, Partial<CardData>> = {}
@@ -540,12 +565,14 @@ export const useStore = create<GameState>((set, get) => ({
             const isSignature = sigConfig.streamerId && sigConfig.signatureBalloons.includes(card.amount);
             const isCustom = (sigConfig.customBalloons || []).some(cb =>
                 cb.amount === card.amount &&
-                (card.type === 'Ad' ? cb.useForAd : cb.useForNormal)
+                (card.type === 'Ad' ? cb.useForAd : card.type === 'Challenge' ? cb.useForChallenge : card.type === 'Battle' ? cb.useForBattle : cb.useForNormal)
             );
             const isPreset = ['default', 'bronze', 'silver', 'gold'].includes(targetImageUrl)
             const isAd = card.type === 'Ad';
+            const isChallenge = card.type === 'Challenge';
+            const isBattle = card.type === 'Battle';
 
-            if (isPreset || isSignature || isCustom || isAd) {
+            if (isPreset || isSignature || isCustom || isAd || isChallenge || isBattle) {
                 try {
                     const result = await BalloonGenerator.generate(card.nickname, card.amount, sigConfig, card.type || 'Normal')
                     updates[card.id] = { imageUrl: result.imageUrl, isCustomImage: result.isCustom }
