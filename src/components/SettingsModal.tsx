@@ -8,6 +8,21 @@ import packageJson from '../../package.json'
 
 const UPDATE_LOG = [
     {
+        version: '1.4.0',
+        items: [
+            { title: '기능 업데이트', heading: true },
+            { title: '피드백 스트리머명 자동 첨부', description: '피드백 전송 시 스트리머명이 제목에 자동으로 포함됩니다. 내용 확인 후 필요한 경우 디스코드를 통해 답변드리겠습니다.' },
+            { title: '영상풍선 지원', description: '영상풍선을 지원합니다. 구글 드라이브에서 새 블루프린트를 다운받아 기존 블루프린트에 덮어씌워주세요.', link: 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing' },
+            { title: '질문 답변', heading: true },
+            { title: '저장된 기록 불러오기 후 별풍선이 쌓이지 않는 이슈', description: '확인 결과 현재 재현되지 않는 이슈입니다. 재현이 가능해지면 다시 확인하겠습니다.' },
+            { title: '시그니처 사이즈 통일 요청', description: '숲에 등록된 시그니처는 스트리머·제작자마다 규격이 미세하게 다르기 때문에 일괄 통일이 불가능합니다.' },
+            { title: '별풍선이 끝없이 쌓이면 사라지는 현상', description: '공간이 부족해지면 좌상단에 카드가 생성되고, 계속 쌓이면서 밀려나 사라지는 것처럼 보이는 현상입니다. 빠른 패치가 어려운 만큼, 좌상단에 카드가 생성되면 빠르게 위치를 잡아주시는 것을 권장합니다.' },
+            { title: '영상풍선이 추가시그와 겹치는 현상', description: '영상풍선은 기존에 지원하지 않던 기능으로, 이번 업데이트에서 새로 추가된 영역입니다. 추가시그와는 무관합니다.' },
+            { title: '당부 사항', heading: true },
+            { title: '', description: '다양한 의견을 보내주시는 점 항상 감사드립니다. 다만 다수가 필요로 하는 기능을 우선적으로 개발할 수밖에 없는 점 양해 부탁드립니다. 또한 존재하지 않는 기능이 동작하지 않는 것은 버그가 아닙니다. 버그 제보와 기능 제안을 구분하여 보내주시면 감사하겠습니다.' },
+        ]
+    },
+    {
         version: '1.3.0',
         items: [
             { title: '도전미션/대결미션 풍선 추가', description: '도전미션과 대결미션 풍선 유형이 새로 추가되었습니다. 개수에 따라 3단계 이미지가 적용됩니다. ⚠️ 도전미션/대결미션을 지원하려면 와루도 블루프린트를 새 버전으로 교체해야 합니다. 블루프린트를 다운받은 후, 기존 블루프린트 삭제 → 새 블루프린트 임포트를 진행해주세요. 블루프린트 교체 방법을 모르시는 분들을 위한 안내 영상도 같은 링크에 업로드되어 있습니다.', link: 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing' },
@@ -941,10 +956,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     </div>
                                     <div className="space-y-3">
                                         {entry.items.map((item, i) => (
+                                            'heading' in item && (item as any).heading ? (
+                                                <p key={i} className="text-xs font-bold text-white/60 uppercase tracking-wider pt-2 border-t border-white/5 first:border-0 first:pt-0">{item.title}</p>
+                                            ) : (
                                             <div key={i} className="flex gap-3">
-                                                <span className="shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold flex items-center justify-center border border-blue-500/30">{i + 1}</span>
+                                                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400/60 mt-1.5" />
                                                 <div>
-                                                    <p className="text-sm font-semibold text-white/90 mb-0.5">{item.title}</p>
+                                                    {item.title && <p className="text-sm font-semibold text-white/90 mb-0.5">{item.title}</p>}
                                                     <p className="text-xs text-white/50 leading-relaxed">{item.description}</p>
                                                     {'link' in item && (item as any).link && (
                                                         <button
@@ -963,6 +981,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                     )}
                                                 </div>
                                             </div>
+                                            )
                                         ))}
                                     </div>
                                 </div>
@@ -1001,6 +1020,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 const FEEDBACK_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYgwk9uACllB1Zv3ViFKJ3MbTRTIFOc2HWaeLtxcxvy4tvVvKFmP6489zw7ZNPItl5/exec'
 
 function FeedbackTab() {
+    const streamerName = useStore(s => s.settings.streamerNameProfile)
     const [category, setCategory] = useState('bug')
     const [title, setTitle] = useState('')
     const [message, setMessage] = useState('')
@@ -1017,13 +1037,14 @@ function FeedbackTab() {
         setStatus('sending')
 
         const categoryLabel = categories.find(c => c.id === category)?.label || category
+        const fullTitle = streamerName ? `[${streamerName}] ${title.trim()}` : title.trim()
 
         try {
             const response = await fetch(FEEDBACK_SCRIPT_URL, {
                 method: 'POST',
                 body: JSON.stringify({
                     category: categoryLabel,
-                    title: title.trim(),
+                    title: fullTitle,
                     body: message.trim(),
                     token: "VHldDKRxPPxhm6zlYyM1X4otbgG0rDJi2FdmmvjTPsXYsbOuEmRIvpbUpFu3lDzz"
                 }),

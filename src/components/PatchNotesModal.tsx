@@ -30,67 +30,84 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ onDismiss }) =
 
                 <div className="px-8 py-6 space-y-5 overflow-y-auto max-h-[60vh]">
                     <div className="space-y-4">
+                        <p className="text-xs font-bold text-white/60 uppercase tracking-wider">기능 업데이트</p>
+
                         <div className="flex gap-3">
                             <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">1</span>
                             <div>
-                                <p className="text-sm font-semibold text-white/90 mb-1">도전미션/대결미션 풍선 추가</p>
+                                <p className="text-sm font-semibold text-white/90 mb-1">피드백 스트리머명 자동 첨부</p>
                                 <p className="text-xs text-white/50 leading-relaxed">
-                                    도전미션과 대결미션 풍선 유형이 새로 추가되었습니다. 개수에 따라 3단계 이미지가 적용됩니다.
+                                    피드백 전송 시 스트리머명이 제목에 자동으로 포함됩니다. 내용 확인 후 필요한 경우 디스코드를 통해 답변드리겠습니다.
                                 </p>
-                                <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                                    <p className="text-xs font-bold text-amber-400 mb-1.5">블루프린트 교체 필수</p>
-                                    <p className="text-[11px] text-amber-300/70 leading-relaxed">
-                                        도전미션/대결미션을 지원하려면 와루도 블루프린트를 새 버전으로 교체해야 합니다.
-                                        아래 구글 드라이브 링크에서 블루프린트를 다운받은 후, 기존 블루프린트 삭제 &rarr; 새 블루프린트 임포트를 진행해주세요.
-                                        블루프린트 교체 방법을 모르시는 분들을 위한 안내 영상도 같은 링크에 업로드되어 있습니다.
-                                    </p>
-                                    <button
-                                        onClick={() => {
-                                            const url = 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing'
-                                            if (isElectron() && window.ipcRenderer) {
-                                                window.ipcRenderer.send('open-external', url)
-                                            } else {
-                                                window.open(url, '_blank')
-                                            }
-                                        }}
-                                        className="mt-2 text-[11px] text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer"
-                                    >
-                                        블루프린트 다운로드 (구글 드라이브)
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
                         <div className="flex gap-3">
                             <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">2</span>
                             <div>
-                                <p className="text-sm font-semibold text-white/90 mb-1">도전미션/대결미션 자동화 설정</p>
+                                <p className="text-sm font-semibold text-white/90 mb-1">영상풍선 지원</p>
                                 <p className="text-xs text-white/50 leading-relaxed">
-                                    설정에서 도전미션과 대결미션 각각의 자동 카드 생성 및 최소 금액을 별도로 설정할 수 있습니다.
+                                    영상풍선을 지원합니다. 구글 드라이브에서 새 블루프린트를 다운받아 기존 블루프린트에 덮어씌워주세요.
                                 </p>
+                                <button
+                                    onClick={() => {
+                                        const url = 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing'
+                                        if (isElectron() && window.ipcRenderer) {
+                                            window.ipcRenderer.send('open-external', url)
+                                        } else {
+                                            window.open(url, '_blank')
+                                        }
+                                    }}
+                                    className="mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer"
+                                >
+                                    블루프린트 다운로드 (구글 드라이브)
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div className="space-y-4">
+                        <p className="text-xs font-bold text-white/60 uppercase tracking-wider">질문 답변</p>
+
+                        <div className="flex gap-3">
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400/60 mt-1.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-white/90 mb-0.5">저장된 기록 불러오기 후 별풍선이 쌓이지 않는 이슈</p>
+                                <p className="text-xs text-white/50 leading-relaxed">확인 결과 현재 재현되지 않는 이슈입니다. 재현이 가능해지면 다시 확인하겠습니다.</p>
                             </div>
                         </div>
 
                         <div className="flex gap-3">
-                            <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">3</span>
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400/60 mt-1.5" />
                             <div>
-                                <p className="text-sm font-semibold text-white/90 mb-1">시그니처/추가시그 미션 지원</p>
-                                <p className="text-xs text-white/50 leading-relaxed">
-                                    시그니처 이미지와 추가시그를 도전미션·대결미션에도 적용할 수 있는 옵션이 추가되었습니다.
-                                </p>
+                                <p className="text-sm font-semibold text-white/90 mb-0.5">시그니처 사이즈 통일 요청</p>
+                                <p className="text-xs text-white/50 leading-relaxed">숲에 등록된 시그니처는 스트리머·제작자마다 규격이 미세하게 다르기 때문에 일괄 통일이 불가능합니다.</p>
                             </div>
                         </div>
 
                         <div className="flex gap-3">
-                            <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center border border-blue-500/30">4</span>
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400/60 mt-1.5" />
                             <div>
-                                <p className="text-sm font-semibold text-white/90 mb-1">업데이트 로그 탭 추가</p>
-                                <p className="text-xs text-white/50 leading-relaxed">
-                                    설정에서 모든 과거 업데이트 내역을 확인할 수 있습니다.
-                                </p>
+                                <p className="text-sm font-semibold text-white/90 mb-0.5">별풍선이 끝없이 쌓이면 사라지는 현상</p>
+                                <p className="text-xs text-white/50 leading-relaxed">공간이 부족해지면 좌상단에 카드가 생성되고, 계속 쌓이면서 밀려나 사라지는 것처럼 보이는 현상입니다. 빠른 패치가 어려운 만큼, 좌상단에 카드가 생성되면 빠르게 위치를 잡아주시는 것을 권장합니다.</p>
                             </div>
                         </div>
 
+                        <div className="flex gap-3">
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400/60 mt-1.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-white/90 mb-0.5">영상풍선이 추가시그와 겹치는 현상</p>
+                                <p className="text-xs text-white/50 leading-relaxed">영상풍선은 기존에 지원하지 않던 기능으로, 이번 업데이트에서 새로 추가된 영역입니다. 추가시그와는 무관합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold text-white/60 uppercase tracking-wider">당부 사항</p>
+                        <p className="text-xs text-white/50 leading-relaxed">
+                            다양한 의견을 보내주시는 점 항상 감사드립니다. 다만 다수가 필요로 하는 기능을 우선적으로 개발할 수밖에 없는 점 양해 부탁드립니다. 또한 존재하지 않는 기능이 동작하지 않는 것은 버그가 아닙니다. 버그 제보와 기능 제안을 구분하여 보내주시면 감사하겠습니다.
+                        </p>
                     </div>
 
                     <div className="flex gap-3">
