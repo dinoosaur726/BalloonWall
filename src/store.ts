@@ -64,10 +64,51 @@ interface Settings {
     useSignatureForMissions?: boolean
     snapToStacks: boolean
     lastSeenPatchNotes?: string
+    newCardPosition?: NewCardPosition
     design: {
         showNickname: boolean
         showAmount: boolean
     }
+}
+
+export type NewCardPosition =
+    | 'top-left' | 'top-center' | 'top-right'
+    | 'middle-left' | 'middle-center' | 'middle-right'
+    | 'bottom-left' | 'bottom-center' | 'bottom-right'
+
+const CANVAS_WIDTH = 1920
+const CANVAS_HEIGHT = 1080
+const SPAWN_JITTER = 200
+
+const getSpawnPosition = (position: NewCardPosition = 'middle-left') => {
+    const cardW = CARD_WIDTH_REM * REM * 0.85
+    const cardH = BASE_HEIGHT_REM * REM * 0.85
+    const regionW = CANVAS_WIDTH / 3
+    const regionH = CANVAS_HEIGHT / 3
+    const xs = {
+        left: regionW * 0.5 - cardW / 2,
+        center: regionW * 1.5 - cardW / 2,
+        right: regionW * 2.5 - cardW / 2
+    }
+    const ys = {
+        top: regionH * 0.5 - cardH / 2,
+        middle: regionH * 1.5 - cardH / 2,
+        bottom: regionH * 2.5 - cardH / 2
+    }
+    const anchors: Record<NewCardPosition, [number, number]> = {
+        'top-left': [xs.left, ys.top],
+        'top-center': [xs.center, ys.top],
+        'top-right': [xs.right, ys.top],
+        'middle-left': [xs.left, ys.middle],
+        'middle-center': [xs.center, ys.middle],
+        'middle-right': [xs.right, ys.middle],
+        'bottom-left': [xs.left, ys.bottom],
+        'bottom-center': [xs.center, ys.bottom],
+        'bottom-right': [xs.right, ys.bottom]
+    }
+    const [ax, ay] = anchors[position] || anchors['middle-left']
+    const jitter = () => (Math.random() - 0.5) * SPAWN_JITTER
+    return { x: ax + jitter(), y: ay + jitter() }
 }
 
 interface Rect {
@@ -203,6 +244,7 @@ export const useStore = create<GameState>((set, get) => ({
         minAmountBattle: 0,
         snapToStacks: true,
         lastSeenPatchNotes: '',
+        newCardPosition: 'middle-left',
         design: {
             showNickname: true,
             showAmount: true
@@ -328,8 +370,7 @@ export const useStore = create<GameState>((set, get) => ({
                 stacks: nextStacks
             }))
         } else {
-            const x = 50 + Math.random() * 200
-            const y = 50 + Math.random() * 200
+            const { x, y } = getSpawnPosition(settings.newCardPosition)
 
             const newStackId = uuidv4()
             const newStack: Stack = {

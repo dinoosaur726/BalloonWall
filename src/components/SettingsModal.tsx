@@ -8,6 +8,15 @@ import packageJson from '../../package.json'
 
 const UPDATE_LOG = [
     {
+        version: '1.5.0',
+        items: [
+            { title: '기능 업데이트', heading: true },
+            { title: '새 풍벽지 위치 선택', description: '"설정 > 디자인" 에서 새 풍벽지가 생성될 위치를 3x3 구역 중 하나로 선택할 수 있습니다.' },
+            { title: '별풍선 이미지 늘어짐 현상 개선', description: '가끔씩 별풍선 이미지가 풍벽지에 늘어져 표시되던 문제를 해결했습니다.' },
+            { title: '설정 문구 및 UI 수정', description: '설정에 있는 문구와 UI가 소폭 수정되었습니다.' },
+        ]
+    },
+    {
         version: '1.4.0',
         items: [
             { title: '기능 업데이트', heading: true },
@@ -16,7 +25,7 @@ const UPDATE_LOG = [
             { title: '질문 답변', heading: true },
             { title: '저장된 기록 불러오기 후 별풍선이 쌓이지 않는 이슈', description: '확인 결과 현재 재현되지 않는 이슈입니다. 재현이 가능해지면 다시 확인하겠습니다.' },
             { title: '시그니처 사이즈 통일 요청', description: '숲에 등록된 시그니처는 스트리머·제작자마다 규격이 미세하게 다르기 때문에 일괄 통일이 불가능합니다.' },
-            { title: '별풍선이 끝없이 쌓이면 사라지는 현상', description: '공간이 부족해지면 좌상단에 카드가 생성되고, 계속 쌓이면서 밀려나 사라지는 것처럼 보이는 현상입니다. 빠른 패치가 어려운 만큼, 좌상단에 카드가 생성되면 빠르게 위치를 잡아주시는 것을 권장합니다.' },
+            { title: '별풍선이 끝없이 쌓이면 사라지는 현상', description: '공간이 부족해지면 좌상단에 풍벽지가 생성되고, 계속 쌓이면서 밀려나 사라지는 것처럼 보이는 현상입니다. 빠른 패치가 어려운 만큼, 좌상단에 풍벽지가 생성되면 빠르게 위치를 잡아주시는 것을 권장합니다.' },
             { title: '영상풍선이 추가시그와 겹치는 현상', description: '영상풍선은 기존에 지원하지 않던 기능으로, 이번 업데이트에서 새로 추가된 영역입니다. 추가시그와는 무관합니다.' },
             { title: '당부 사항', heading: true },
             { title: '', description: '다양한 의견을 보내주시는 점 항상 감사드립니다. 다만 다수가 필요로 하는 기능을 우선적으로 개발할 수밖에 없는 점 양해 부탁드립니다. 또한 존재하지 않는 기능이 동작하지 않는 것은 버그가 아닙니다. 버그 제보와 기능 제안을 구분하여 보내주시면 감사하겠습니다.' },
@@ -26,7 +35,7 @@ const UPDATE_LOG = [
         version: '1.3.0',
         items: [
             { title: '도전미션/대결미션 풍선 추가', description: '도전미션과 대결미션 풍선 유형이 새로 추가되었습니다. 개수에 따라 3단계 이미지가 적용됩니다. ⚠️ 도전미션/대결미션을 지원하려면 와루도 블루프린트를 새 버전으로 교체해야 합니다. 블루프린트를 다운받은 후, 기존 블루프린트 삭제 → 새 블루프린트 임포트를 진행해주세요. 블루프린트 교체 방법을 모르시는 분들을 위한 안내 영상도 같은 링크에 업로드되어 있습니다.', link: 'https://drive.google.com/drive/folders/12I-dmmVXG1C0UcqHdwob-1vwbwBUBe_Z?usp=sharing' },
-            { title: '도전미션/대결미션 자동화 설정', description: '설정에서 도전미션과 대결미션 각각의 자동 카드 생성 및 최소 금액을 별도로 설정할 수 있습니다.' },
+            { title: '도전미션/대결미션 자동화 설정', description: '설정에서 도전미션과 대결미션 각각의 자동 풍벽지 생성 및 최소 금액을 별도로 설정할 수 있습니다.' },
             { title: '시그니처/추가시그 미션 지원', description: '시그니처 이미지와 추가시그(커스텀 이미지)를 도전미션·대결미션에도 적용할 수 있는 옵션이 추가되었습니다.' },
             { title: '업데이트 로그 탭 추가', description: '설정에서 모든 과거 업데이트 내역을 확인할 수 있습니다.' },
         ]
@@ -34,8 +43,8 @@ const UPDATE_LOG = [
     {
         version: '1.2.0',
         items: [
-            { title: '카드 간 스냅 토글 추가', description: '설정 > 디자인에서 카드 간 스냅 기능을 끌 수 있습니다. 끄면 카드를 더 자유롭게 배치할 수 있으며, 벽면 스냅은 그대로 유지됩니다.' },
-            { title: '크기 조절 시 주변 카드 밀기/당기기 제거', description: '카드 크기를 조절할 때 주변 카드가 밀리거나 당겨지던 동작을 제거했습니다. 버그가 잦아 삭제 조치하였습니다.' },
+            { title: '풍벽지 간 스냅 토글 추가', description: '설정 > 디자인에서 풍벽지 간 스냅 기능을 끌 수 있습니다. 끄면 풍벽지를 더 자유롭게 배치할 수 있으며, 벽면 스냅은 그대로 유지됩니다.' },
+            { title: '크기 조절 시 주변 풍벽지 밀기/당기기 제거', description: '풍벽지 크기를 조절할 때 주변 풍벽지가 밀리거나 당겨지던 동작을 제거했습니다. 버그가 잦아 삭제 조치하였습니다.' },
         ]
     }
 ]
@@ -53,6 +62,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     }))
     const [activeTab, setActiveTab] = useState<'settings' | 'design' | 'customBalloons' | 'history' | 'saves' | 'updateLog' | 'about' | 'feedback'>('settings')
     const [confirmReset, setConfirmReset] = useState(false)
+
+    const [obsUrlCopied, setObsUrlCopied] = useState(false)
+    const [updateLogPage, setUpdateLogPage] = useState(0)
 
     const [newCustomAmount, setNewCustomAmount] = useState<number | ''>('')
     const [newCustomImage, setNewCustomImage] = useState<string>('')
@@ -174,7 +186,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     className="w-full py-3 px-4 bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect className="rect" x="3" y="3" width="18" height="18" rx="2" ry="2" /><line className="line" x1="3" y1="9" x2="21" y2="9" /><line className="line" x1="9" y1="21" x2="9" y2="9" /></svg>
-                                    카드 자동 정렬
+                                    풍벽지 자동 정렬
                                 </button>
                             </div>
 
@@ -201,7 +213,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                             className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
                                         />
                                         <div className="mt-2 p-2.5 bg-black/30 rounded-lg border border-white/5">
-                                            <p className="text-[11px] text-white/50 mb-1">OBS 브라우저 소스 URL:</p>
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <p className="text-[11px] text-white/50">OBS 브라우저 소스 URL:</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const url = `http://localhost:${localSettings.httpPort || 3006}?wsPort=${localSettings.wsPort || 3005}`
+                                                        navigator.clipboard.writeText(url).then(() => {
+                                                            setObsUrlCopied(true)
+                                                            setTimeout(() => setObsUrlCopied(false), 1500)
+                                                        })
+                                                    }}
+                                                    className={`shrink-0 text-[11px] px-2 py-0.5 rounded transition-colors ${obsUrlCopied ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/10 hover:bg-white/15 text-white/70 border border-white/10'}`}
+                                                >
+                                                    {obsUrlCopied ? '복사됨!' : '복사하기'}
+                                                </button>
+                                            </div>
                                             <code className="text-xs text-emerald-400 font-mono select-all break-all">
                                                 {`http://localhost:${localSettings.httpPort || 3006}?wsPort=${localSettings.wsPort || 3005}`}
                                             </code>
@@ -255,142 +282,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             </div>
 
                             <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자동화 설정</h3>
+                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">풍벽지 자동 생성 설정</h3>
 
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium text-white/90">자동 카드 생성</div>
-                                            <div className="text-xs text-white/50 mt-0.5">
-                                                {localSettings.autoAdd ? '후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setLocalSettings({ ...localSettings, autoAdd: !localSettings.autoAdd })}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAdd ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAdd ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                                    <div className="grid grid-cols-[1fr_auto_110px] gap-x-4 gap-y-2 items-center">
+                                        <div className="text-[11px] font-medium text-white/40 uppercase tracking-wider">종류</div>
+                                        <div className="text-[11px] font-medium text-white/40 uppercase tracking-wider text-center">자동 생성</div>
+                                        <div className="text-[11px] font-medium text-white/40 uppercase tracking-wider text-right">최소 개수</div>
+
+                                        {([
+                                            { label: '별풍선', enabledKey: 'autoAdd', amountKey: 'minAmount' },
+                                            { label: '애드벌룬', enabledKey: 'autoAddAd', amountKey: 'minAmountAd' },
+                                            { label: '도전미션', enabledKey: 'autoAddChallenge', amountKey: 'minAmountChallenge' },
+                                            { label: '대결미션', enabledKey: 'autoAddBattle', amountKey: 'minAmountBattle' },
+                                        ] as const).map(({ label, enabledKey, amountKey }) => {
+                                            const enabled = (localSettings as any)[enabledKey] !== false
+                                            const amount = (localSettings as any)[amountKey] ?? 0
+                                            return (
+                                                <React.Fragment key={label}>
+                                                    <div className="text-sm font-medium text-white/90 pt-2 border-t border-white/5">{label}</div>
+                                                    <div className="flex justify-center pt-2 border-t border-white/5">
+                                                        <button
+                                                            onClick={() => setLocalSettings({ ...localSettings, [enabledKey]: !enabled })}
+                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-blue-500' : 'bg-gray-600'}`}
+                                                        >
+                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="pt-2 border-t border-white/5">
+                                                        <input
+                                                            type="number"
+                                                            value={amount}
+                                                            disabled={!enabled}
+                                                            onChange={(e) => setLocalSettings({ ...localSettings, [amountKey]: parseInt(e.target.value) || 0 })}
+                                                            className="w-full bg-black/20 border border-white/10 rounded-lg p-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        />
+                                                    </div>
+                                                </React.Fragment>
+                                            )
+                                        })}
                                     </div>
-
-                                    {localSettings.autoAdd && (
-                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
-                                                최소 금액 설정 (OO개 이상만 제작)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="number"
-                                                    value={localSettings.minAmount}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmount: parseInt(e.target.value) || 0 })}
-                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                                />
-                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium text-white/90">애드벌룬 자동 카드 생성</div>
-                                            <div className="text-xs text-white/50 mt-0.5">
-                                                {localSettings.autoAddAd ? '애드벌룬 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setLocalSettings({ ...localSettings, autoAddAd: !localSettings.autoAddAd })}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddAd !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddAd !== false ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-
-                                    {localSettings.autoAddAd !== false && (
-                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
-                                                애드벌룬 최소 금액 설정 (OO개 이상만 제작)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="number"
-                                                    value={localSettings.minAmountAd !== undefined ? localSettings.minAmountAd : 0}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountAd: parseInt(e.target.value) || 0 })}
-                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                                />
-                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium text-white/90">도전미션 자동 카드 생성</div>
-                                            <div className="text-xs text-white/50 mt-0.5">
-                                                {localSettings.autoAddChallenge !== false ? '도전미션 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setLocalSettings({ ...localSettings, autoAddChallenge: localSettings.autoAddChallenge === false ? true : false })}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddChallenge !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddChallenge !== false ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-
-                                    {localSettings.autoAddChallenge !== false && (
-                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
-                                                도전미션 최소 금액 설정 (OO개 이상만 제작)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="number"
-                                                    value={localSettings.minAmountChallenge !== undefined ? localSettings.minAmountChallenge : 0}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountChallenge: parseInt(e.target.value) || 0 })}
-                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                                />
-                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium text-white/90">대결미션 자동 카드 생성</div>
-                                            <div className="text-xs text-white/50 mt-0.5">
-                                                {localSettings.autoAddBattle !== false ? '대결미션 후원 시 자동으로 카드를 생성합니다.' : '후원 기록만 남기고 카드는 수동으로 생성합니다.'}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => setLocalSettings({ ...localSettings, autoAddBattle: localSettings.autoAddBattle === false ? true : false })}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.autoAddBattle !== false ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.autoAddBattle !== false ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-
-                                    {localSettings.autoAddBattle !== false && (
-                                        <div className="pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-medium text-white/70 mb-1.5">
-                                                대결미션 최소 금액 설정 (OO개 이상만 제작)
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="number"
-                                                    value={localSettings.minAmountBattle !== undefined ? localSettings.minAmountBattle : 0}
-                                                    onChange={(e) => setLocalSettings({ ...localSettings, minAmountBattle: parseInt(e.target.value) || 0 })}
-                                                    className="w-24 bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
-                                                />
-                                                <span className="text-xs text-white/40">개 이상 후원 시에만 자동 생성</span>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <p className="text-[11px] text-white/40 mt-3 pt-3 border-t border-white/5">
+                                        자동 생성이 켜진 항목은 설정한 개수 이상 후원 시에만 풍벽지가 생성됩니다.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -400,43 +334,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         <div className="space-y-8">
                             <div className="space-y-6">
                                 <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">텍스트 표시</h3>
-                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-white/90">닉네임 표시</span>
-                                            <button
-                                                onClick={() => setLocalSettings({
-                                                    ...localSettings,
-                                                    design: { ...localSettings.design, showNickname: !localSettings.design.showNickname }
-                                                })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.showNickname ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.showNickname ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">새 풍벽지 위치</h3>
+                                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-3">
+                                        <div className="text-xs text-white/50">
+                                            새 풍벽지가 생성될 위치를 선택하세요.
                                         </div>
-                                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                                            <span className="text-sm font-medium text-white/90">개수 표시</span>
-                                            <button
-                                                onClick={() => setLocalSettings({
-                                                    ...localSettings,
-                                                    design: { ...localSettings.design, showAmount: !localSettings.design.showAmount }
+                                        <div
+                                            className="relative mx-auto rounded-lg bg-black/40 border border-white/10 overflow-hidden"
+                                            style={{ width: '100%', maxWidth: 320, aspectRatio: '16 / 9' }}
+                                        >
+                                            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-px p-px">
+                                                {([
+                                                    'top-left', 'top-center', 'top-right',
+                                                    'middle-left', 'middle-center', 'middle-right',
+                                                    'bottom-left', 'bottom-center', 'bottom-right'
+                                                ] as const).map((pos) => {
+                                                    const current = localSettings.newCardPosition || 'middle-left'
+                                                    const selected = current === pos
+                                                    return (
+                                                        <button
+                                                            key={pos}
+                                                            onClick={() => setLocalSettings({ ...localSettings, newCardPosition: pos })}
+                                                            className={`transition-colors flex items-center justify-center ${selected ? 'bg-blue-500/60 hover:bg-blue-500/70' : 'bg-white/5 hover:bg-white/10'}`}
+                                                        >
+                                                            {selected && (
+                                                                <div className="w-2 h-2 rounded-full bg-white" />
+                                                            )}
+                                                        </button>
+                                                    )
                                                 })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.design.showAmount ? 'bg-blue-500' : 'bg-gray-600'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.design.showAmount ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">스냅</h3>
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">자석</h3>
                                     <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <span className="text-sm font-medium text-white/90">카드 간 스냅</span>
+                                                <span className="text-sm font-medium text-white/90">풍벽지 간 붙기</span>
                                                 <div className="text-xs text-white/50 mt-0.5">
-                                                    {localSettings.snapToStacks !== false ? '카드를 다른 카드 옆에 놓으면 자동으로 붙습니다.' : '카드 간 자동 붙기가 꺼져 있습니다. 벽면 스냅은 유지됩니다.'}
+                                                    {localSettings.snapToStacks !== false ? '풍벽지를 다른 풍벽지 옆에 놓으면 자동으로 붙습니다.' : '풍벽지 간 자동 붙기가 꺼져 있습니다. 벽면 스냅은 유지됩니다.'}
                                                 </div>
                                             </div>
                                             <button
@@ -675,7 +614,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 space-y-1">
                                 <p className="text-[11px] text-blue-400/70 font-semibold">권장 이미지 사이즈</p>
                                 <p className="text-[11px] text-white/40 leading-relaxed">
-                                    480 x 285 px (비율 16:9.5). 이 비율에 맞는 이미지를 사용하면 카드에 꽉 차게 표시됩니다.
+                                    480 x 285 px (비율 16:9.5). 이 비율에 맞는 이미지를 사용하면 풍벽지에 꽉 차게 표시됩니다.
                                     다른 비율의 이미지도 사용 가능하지만, 비율이 다르면 늘어날 수 있습니다. 빈 여백 없이 꽉 찬 이미지를 사용해 주세요.
                                 </p>
                             </div>
@@ -727,7 +666,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                                         }}
                                                         className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-md text-xs font-medium transition-colors"
                                                     >
-                                                        카드 생성
+                                                        풍벽지 생성
                                                     </button>
                                                 </td>
                                             </tr>
@@ -767,7 +706,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                             저장
                                         </button>
                                     </div>
-                                    <p className="text-[11px] text-white/30">현재 카드 배치와 설정을 저장합니다. 같은 이름이 있으면 덮어씁니다.</p>
+                                    <p className="text-[11px] text-white/30">현재 풍벽지 배치와 설정을 저장합니다. 같은 이름이 있으면 덮어씁니다.</p>
                                 </div>
                             </div>
 
@@ -816,11 +755,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         onClick={() => setConfirmReset(true)}
                                         className="w-full py-3 bg-white/5 hover:bg-red-500/10 text-white/50 hover:text-red-400 font-medium rounded-xl border border-white/10 hover:border-red-500/30 transition-all text-sm"
                                     >
-                                        모든 카드 초기화
+                                        모든 풍벽지 초기화
                                     </button>
                                 ) : (
                                     <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <p className="text-sm text-red-300 font-medium text-center">현재 카드를 모두 삭제하고 처음부터 시작합니다</p>
+                                        <p className="text-sm text-red-300 font-medium text-center">현재 풍벽지를 모두 삭제하고 처음부터 시작합니다</p>
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => setConfirmReset(false)}
@@ -942,15 +881,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         </div>
                     )}
 
-                    {activeTab === 'updateLog' && (
-                        <div className="space-y-6">
-                            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider mb-2">업데이트 로그</h3>
+                    {activeTab === 'updateLog' && (() => {
+                        const page = Math.min(updateLogPage, UPDATE_LOG.length - 1)
+                        const entry = UPDATE_LOG[page]
+                        const canPrev = page < UPDATE_LOG.length - 1
+                        const canNext = page > 0
+                        return (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider">업데이트 로그</h3>
+                                    <span className="text-[11px] text-white/40">{page + 1} / {UPDATE_LOG.length}</span>
+                                </div>
 
-                            {UPDATE_LOG.map((entry, idx) => (
-                                <div key={idx} className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-bold text-white">v{entry.version}</span>
-                                        {idx === 0 && (
+                                        {page === 0 && (
                                             <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30">최신</span>
                                         )}
                                     </div>
@@ -985,9 +931,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         ))}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+
+                                <div className="flex items-center justify-between gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={!canNext}
+                                        onClick={() => setUpdateLogPage(p => p - 1)}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-white/70 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        ← 최신 버전
+                                    </button>
+                                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                        {UPDATE_LOG.map((e, i) => (
+                                            <button
+                                                key={e.version}
+                                                type="button"
+                                                onClick={() => setUpdateLogPage(i)}
+                                                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${i === page ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' : 'bg-white/5 hover:bg-white/10 text-white/50 border border-transparent'}`}
+                                            >
+                                                v{e.version}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        disabled={!canPrev}
+                                        onClick={() => setUpdateLogPage(p => p + 1)}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-white/70 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        이전 버전 →
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    })()}
 
                     {activeTab === 'feedback' && (
                         <FeedbackTab />

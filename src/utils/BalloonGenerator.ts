@@ -117,14 +117,15 @@ export class BalloonGenerator {
                 const sigUrl = `https://static.file.sooplive.co.kr/starballoon/story_m/${sigConfig.streamerId}_${amount}.png`;
                 try {
                     let sigImg = await this.loadImage(sigUrl);
-                    // Crop: signature -> bottom 293x163
-                    if (sigImg.width === 293 && sigImg.height === 248) {
+                    // Crop: keep native width, cut top so height = 163
+                    if (sigImg.height > 163) {
+                        const cropW = sigImg.width;
                         const cropCanvas = document.createElement('canvas');
-                        cropCanvas.width = 293;
+                        cropCanvas.width = cropW;
                         cropCanvas.height = 163;
                         const cropCtx = cropCanvas.getContext('2d');
                         if (cropCtx) {
-                            cropCtx.drawImage(sigImg, 0, 248 - 163, 293, 163, 0, 0, 293, 163);
+                            cropCtx.drawImage(sigImg, 0, sigImg.height - 163, cropW, 163, 0, 0, cropW, 163);
                             sigImg = new Image();
                             await new Promise<void>((resolve) => {
                                 sigImg.onload = () => resolve();
@@ -282,21 +283,24 @@ export class BalloonGenerator {
 
             balloonImg = await loadBalloon();
 
-            // Crop external images: signature -> bottom 293x163, standard -> bottom 293x174
-            if (isExternal && balloonImg.width === 293 && balloonImg.height === 248) {
+            // Crop external images: keep native width, cut top so height = 163 (signature) / 174 (standard/ad)
+            if (isExternal) {
                 const cropH = isSignatureSource ? 163 : 174;
-                const cropY = 248 - cropH;
-                const cropCanvas = document.createElement('canvas');
-                cropCanvas.width = 293;
-                cropCanvas.height = cropH;
-                const cropCtx = cropCanvas.getContext('2d');
-                if (cropCtx) {
-                    cropCtx.drawImage(balloonImg, 0, cropY, 293, cropH, 0, 0, 293, cropH);
-                    balloonImg = new Image();
-                    await new Promise<void>((resolve) => {
-                        balloonImg.onload = () => resolve();
-                        balloonImg.src = cropCanvas.toDataURL('image/png');
-                    });
+                if (balloonImg.height > cropH) {
+                    const cropW = balloonImg.width;
+                    const cropY = balloonImg.height - cropH;
+                    const cropCanvas = document.createElement('canvas');
+                    cropCanvas.width = cropW;
+                    cropCanvas.height = cropH;
+                    const cropCtx = cropCanvas.getContext('2d');
+                    if (cropCtx) {
+                        cropCtx.drawImage(balloonImg, 0, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                        balloonImg = new Image();
+                        await new Promise<void>((resolve) => {
+                            balloonImg.onload = () => resolve();
+                            balloonImg.src = cropCanvas.toDataURL('image/png');
+                        });
+                    }
                 }
             }
 
