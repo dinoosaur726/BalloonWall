@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { useStore } from '../store'
-import type { CustomBalloon } from '../store'
+import { useStore, clampStackToCanvas } from '../store'
+import type { CustomBalloon, Stack } from '../store'
 import appIcon from '../../build/icon.png'
 import { isElectron } from '../utils/env'
 import packageJson from '../../package.json'
 
 const UPDATE_LOG = [
+    {
+        version: '1.6.0',
+        items: [
+            { title: '버그 수정', heading: true },
+            { title: '풍벽지가 화면 위로 사라지던 현상 수정', description: '별풍선이 쌓일 때 위에 있던 풍벽지가 화면 밖으로 밀려나, 잡을 수도 지울 수도 없게 되던 문제를 해결했습니다. 이제 위로 밀려날 공간이 없으면 그 풍벽지에는 쌓이지 않고 새 풍벽지가 만들어집니다.' },
+            { title: '화면 밖 풍벽지 되돌리기', description: '이미 화면 밖으로 나가버린 풍벽지가 있다면, 설정의 "풍벽지 자동 정렬" 버튼을 누르면 화면 안으로 돌아옵니다.' },
+            { title: '연속 후원 시 별풍선 누락 수정', description: '후원이 짧은 시간에 연달아 들어오면 가끔 별풍선이 누락되던 문제를 해결했습니다.' },
+            { title: '닉네임에 "/"가 있으면 표시되지 않던 문제 수정', description: '닉네임에 "/" 기호가 포함된 후원이 무시되던 문제를 해결했습니다.' },
+            { title: '별풍선이 아주 많이 쌓이면 아래가 안 보이던 문제 수정', description: '한 풍벽지에 별풍선이 50개 넘게 쌓이면 그 아래 별풍선들이 보이지 않던 문제를 해결했습니다.' },
+            { title: '설정 저장 시 OBS 화면이 끊기던 문제 수정', description: '포트를 바꾸지 않았다면 설정을 저장해도 OBS 연결이 유지됩니다.' },
+            { title: '저장 기능 개선', description: '저장 공간이 부족하면 조용히 실패하는 대신 안내 문구가 표시됩니다. 또한 저장을 불러와도 포트 등 연동 설정은 바뀌지 않습니다.' },
+            { title: '프로그램 안정성 개선', description: '특정 상황에서 프로그램이 갑자기 종료되거나, 다음 실행 때 연동이 되지 않던 여러 문제를 해결했습니다.' },
+        ]
+    },
     {
         version: '1.5.0',
         items: [
@@ -77,6 +91,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
     const [saveName, setSaveName] = useState('')
     const [savedInstances, setSavedInstances] = useState<string[]>([])
+    const [saveError, setSaveError] = useState('')
 
     useEffect(() => {
         setLocalSettings(prev => ({
@@ -99,20 +114,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         onClose()
     }
 
+    const writeSave = (name: string): boolean => {
+        // 전체 스토어(액션 포함)가 아닌 데이터만 저장 + localStorage 용량 초과를 잡아준다
+        const { cards, stacks, history: hist, settings: currentSettings } = useStore.getState()
+        try {
+            localStorage.setItem(`BW_SAVE_${name}`, JSON.stringify({ cards, stacks, history: hist, settings: currentSettings }))
+            setSaveError('')
+            return true
+        } catch (e) {
+            console.error('Failed to save instance:', e)
+            setSaveError('저장 공간이 부족하여 저장하지 못했습니다. 오래된 저장을 삭제하거나 풍벽지 수를 줄여주세요.')
+            return false
+        }
+    }
+
     const saveInstance = () => {
         if (!saveName) return
-        const stateToSave = useStore.getState()
-        localStorage.setItem(`BW_SAVE_${saveName}`, JSON.stringify(stateToSave))
-        setSaveName('')
+        if (writeSave(saveName)) {
+            setSaveName('')
+        }
         updateSavedInstances()
     }
 
     const loadInstance = (name: string) => {
         const raw = localStorage.getItem(`BW_SAVE_${name}`)
-        if (raw) {
+        if (!raw) return
+        try {
             const parsed = JSON.parse(raw)
-            loadState(parsed)
+            // 설정(포트 등)은 복원하지 않는다 — 현재 서버 상태와 어긋나기 때문
+            // 화면 밖 좌표로 저장된 구버전 스택은 캔버스 안으로 되돌린다
+            const rawStacks: Record<string, Stack> = parsed.stacks || {}
+            const stacks: Record<string, Stack> = {}
+            Object.values(rawStacks).forEach(s => {
+                stacks[s.id] = clampStackToCanvas(s)
+            })
+            loadState({
+                cards: parsed.cards || {},
+                stacks,
+                history: parsed.history || []
+            })
+            setSaveError('')
             onClose()
+        } catch (e) {
+            console.error('Failed to load instance:', e)
+            setSaveError('저장 데이터를 불러오지 못했습니다. 파일이 손상되었을 수 있습니다.')
         }
     }
 
@@ -123,8 +168,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
     const handleSaveAndReset = () => {
         if (!saveName.trim()) return
-        const stateToSave = useStore.getState()
-        localStorage.setItem(`BW_SAVE_${saveName.trim()}`, JSON.stringify(stateToSave))
+        if (!writeSave(saveName.trim())) {
+            updateSavedInstances()
+            return
+        }
         updateSavedInstances()
         setSaveName('')
         store.resetState()
@@ -198,8 +245,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         <label className="block text-xs font-medium text-white/70 mb-1.5">웹소켓 포트</label>
                                         <input
                                             type="number"
-                                            value={localSettings.wsPort}
-                                            onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) })}
+                                            value={localSettings.wsPort || 3005}
+                                            onChange={(e) => setLocalSettings({ ...localSettings, wsPort: parseInt(e.target.value) || 3005 })}
                                             className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-white/20"
                                         />
                                     </div>
@@ -707,6 +754,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         </button>
                                     </div>
                                     <p className="text-[11px] text-white/30">현재 풍벽지 배치와 설정을 저장합니다. 같은 이름이 있으면 덮어씁니다.</p>
+                                    {saveError && (
+                                        <p className="text-xs text-red-400">{saveError}</p>
+                                    )}
                                 </div>
                             </div>
 

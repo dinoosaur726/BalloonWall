@@ -6,8 +6,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
 const electron = require('electron')
-const { app, ipcMain, BrowserWindow, dialog, shell } = electron
-import type { IpcMainInvokeEvent } from 'electron'
+const { app, ipcMain, BrowserWindow, shell } = electron
 
 const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
@@ -37,6 +36,8 @@ interface CustomBalloon {
   imageDataUrl: string
   useForNormal: boolean
   useForAd: boolean
+  useForChallenge?: boolean
+  useForBattle?: boolean
 }
 
 interface Settings {
@@ -52,6 +53,14 @@ interface Settings {
   minAmount?: number
   autoAddAd?: boolean
   minAmountAd?: number
+  autoAddChallenge?: boolean
+  minAmountChallenge?: number
+  autoAddBattle?: boolean
+  minAmountBattle?: number
+  useSignatureForMissions?: boolean
+  snapToStacks?: boolean
+  newCardPosition?: string
+  design?: { showNickname: boolean, showAmount: boolean }
   lastSeenPatchNotes?: string
 }
 
@@ -69,9 +78,27 @@ const store = new Store<Settings>({
     minAmount: 0,
     autoAddAd: true,
     minAmountAd: 0,
+    autoAddChallenge: true,
+    minAmountChallenge: 0,
+    autoAddBattle: true,
+    minAmountBattle: 0,
+    useSignatureForMissions: false,
+    snapToStacks: true,
+    newCardPosition: 'middle-left',
+    design: { showNickname: true, showAmount: true },
     lastSeenPatchNotes: ''
   }
 })
+
+const isValidPort = (p: unknown): p is number =>
+  typeof p === 'number' && Number.isInteger(p) && p >= 1 && p <= 65535
+
+// 창이 닫힌 뒤 파괴된 webContents에 send하면 메인 프로세스가 죽는다 — 항상 이 헬퍼를 통해 보낸다
+function sendToRenderer(channel: string, payload?: unknown) {
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(channel, payload)
+  }
+}
 
 const MIME_MAP: Record<string, string> = {
   '.html': 'text/html',
@@ -93,11 +120,18 @@ const MIME_MAP: Record<string, string> = {
 }
 
 function startHttpServer(port: number) {
+  // close()는 비동기라 같은 포트로 즉시 재listen하면 EADDRINUSE로 서버가 죽는다
   if (httpServer) {
-    httpServer.close()
+    const old = httpServer
     httpServer = null
+    old.closeAllConnections?.()
+    old.close(() => doStartHttpServer(port))
+    return
   }
+  doStartHttpServer(port)
+}
 
+function doStartHttpServer(port: number) {
   const serveDir = VITE_DEV_SERVER_URL
     ? path.join(process.env.APP_ROOT!, 'dist')
     : RENDERER_DIST
@@ -130,7 +164,8 @@ function startHttpServer(port: number) {
 
     const filePath = path.join(serveDir, urlPath)
 
-    if (!filePath.startsWith(serveDir)) {
+    const rel = path.relative(serveDir, filePath)
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       res.writeHead(403)
       res.end('Forbidden')
       return
@@ -183,59 +218,75 @@ function broadcastToWsClients(type: string, payload: any) {
 }
 
 function startWebSocketServer(port: number) {
+  // close()는 비동기라 같은 포트로 즉시 재생성하면 EADDRINUSE가 난다
   if (wss) {
-    wss.close()
+    const old = wss
     wss = null
+    old.clients.forEach((client) => client.terminate())
+    old.close(() => doStartWebSocketServer(port))
+    return
   }
+  doStartWebSocketServer(port)
+}
+
+function doStartWebSocketServer(port: number) {
   try {
     wss = new WebSocketServer({ port })
-    console.log(`WebSocket server started on port ${port}`)
-
-    wss.on('connection', (ws) => {
-      console.log('Client connected')
-
-      ws.send(JSON.stringify({
-        type: 'full-state',
-        payload: currentState
-      }))
-
-      ws.on('message', (message) => {
-        const msgStr = message.toString()
-        console.log('Received:', msgStr)
-
-        try {
-          const parsed = JSON.parse(msgStr)
-          if (parsed.type) {
-            return
-          }
-        } catch {
-        }
-
-        if (msgStr.includes('/')) {
-          const parts = msgStr.split('/')
-          if (parts.length === 3) {
-            const [typeStr, nickname, amountStr] = parts
-            const amount = parseInt(amountStr, 10)
-            const type = typeStr === 'Ad' ? 'Ad'
-              : typeStr === 'Challenge' ? 'Challenge'
-              : typeStr === 'Battle' ? 'Battle'
-              : 'Normal'
-            if (!isNaN(amount) && win) {
-              win.webContents.send('new-donation', { type, nickname, amount })
-            }
-          } else if (parts.length === 2) {
-            const [nickname, amountStr] = parts
-            const amount = parseInt(amountStr, 10)
-            if (!isNaN(amount) && win) {
-              win.webContents.send('new-donation', { type: 'Normal', nickname, amount })
-            }
-          }
-        }
-      })
-    })
   } catch (error) {
     console.error('Failed to start WebSocket server:', error)
+    return
   }
+  console.log(`WebSocket server started on port ${port}`)
+
+  // 포트 사용 중 등의 에러는 비동기 'error' 이벤트로 온다 — 리스너가 없으면 앱 전체가 크래시한다
+  wss.on('error', (err) => {
+    console.error('[Main] WebSocket server error:', err)
+  })
+
+  wss.on('connection', (ws) => {
+    console.log('Client connected')
+
+    ws.send(JSON.stringify({
+      type: 'full-state',
+      payload: currentState
+    }))
+
+    ws.on('message', (message) => {
+      const msgStr = message.toString()
+      console.log('Received:', msgStr)
+
+      try {
+        const parsed = JSON.parse(msgStr)
+        if (parsed.type) {
+          return
+        }
+      } catch {
+      }
+
+      // 형식: Type/Nickname/Amount 또는 Nickname/Amount
+      // 닉네임에 '/'가 포함될 수 있으므로 첫 조각(타입)과 마지막 조각(개수)만 떼고 가운데를 닉네임으로 합친다
+      if (msgStr.includes('/')) {
+        const parts = msgStr.split('/')
+        if (parts.length < 2) return
+        const amount = parseInt(parts[parts.length - 1], 10)
+        if (isNaN(amount)) return
+
+        let type: 'Normal' | 'Ad' | 'Challenge' | 'Battle' = 'Normal'
+        let nickname: string
+        if (parts.length === 2) {
+          nickname = parts[0]
+        } else {
+          const typeStr = parts[0]
+          type = typeStr === 'Ad' ? 'Ad'
+            : typeStr === 'Challenge' ? 'Challenge'
+            : typeStr === 'Battle' ? 'Battle'
+            : 'Normal'
+          nickname = parts.slice(1, -1).join('/')
+        }
+        sendToRenderer('new-donation', { type, nickname, amount })
+      }
+    })
+  })
 }
 
 function createWindow() {
@@ -264,8 +315,12 @@ function createWindow() {
     },
   })
 
+  win.on('closed', () => {
+    win = null
+  })
+
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+    sendToRenderer('main-process-message', (new Date).toLocaleString())
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -279,43 +334,6 @@ function createWindow() {
 
 ipcMain.handle('get-settings', () => {
   return store.store
-})
-
-ipcMain.handle('select-image', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [
-      { name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }
-    ]
-  })
-
-  if (result.canceled || result.filePaths.length === 0) {
-    return null
-  }
-
-  return `file://${result.filePaths[0]}`
-})
-
-ipcMain.handle('save-cropped-image', async (_event: IpcMainInvokeEvent, dataUrl: string) => {
-  const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
-  if (!matches || matches.length !== 3) {
-    return null
-  }
-
-  const type = matches[1]
-  const buffer = Buffer.from(matches[2], 'base64')
-
-  const userDataPath = app.getPath('userData')
-  const fileName = `cropped_${Date.now()}.${type}`
-  const filePath = path.join(userDataPath, fileName)
-
-  try {
-    await fs.promises.writeFile(filePath, buffer)
-    return `file://${filePath}`
-  } catch (err) {
-    console.error('Failed to save cropped image:', err)
-    return null
-  }
 })
 
 ipcMain.handle('fetch-image', async (_event: any, url: string) => {
@@ -334,17 +352,26 @@ ipcMain.handle('fetch-image', async (_event: any, url: string) => {
 })
 
 ipcMain.handle('set-settings', (_event: any, newSettings: Partial<Settings>) => {
-  for (const [key, value] of Object.entries(newSettings)) {
+  const sanitized = { ...newSettings }
+  // NaN/범위 밖 포트가 저장되면 다음 실행에서 서버가 아예 뜨지 않는다
+  if ('wsPort' in sanitized && !isValidPort(sanitized.wsPort)) delete sanitized.wsPort
+  if ('httpPort' in sanitized && !isValidPort(sanitized.httpPort)) delete sanitized.httpPort
+
+  const prevWsPort = store.get('wsPort')
+  const prevHttpPort = store.get('httpPort')
+
+  for (const [key, value] of Object.entries(sanitized)) {
     // @ts-ignore
     store.set(key, value)
   }
 
-  if (newSettings.wsPort) {
-    startWebSocketServer(newSettings.wsPort)
+  // 포트가 실제로 바뀐 경우에만 재시작한다 — 설정 저장 때마다 재시작하면 OBS 연결이 매번 끊긴다
+  if (isValidPort(sanitized.wsPort) && sanitized.wsPort !== prevWsPort) {
+    startWebSocketServer(sanitized.wsPort)
   }
 
-  if (newSettings.httpPort) {
-    startHttpServer(newSettings.httpPort)
+  if (isValidPort(sanitized.httpPort) && sanitized.httpPort !== prevHttpPort) {
+    startHttpServer(sanitized.httpPort)
   }
 
   return store.store
@@ -374,8 +401,11 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   createWindow()
-  const wsPort = store.get('wsPort')
-  const httpPort = store.get('httpPort')
+  // 구버전 버그로 null/NaN이 저장되어 있을 수 있으므로 기본 포트로 복구한다
+  const wsPort = isValidPort(store.get('wsPort')) ? store.get('wsPort') : 3005
+  const httpPort = isValidPort(store.get('httpPort')) ? store.get('httpPort') : 3006
+  store.set('wsPort', wsPort)
+  store.set('httpPort', httpPort)
   startWebSocketServer(wsPort)
   startHttpServer(httpPort)
 
@@ -391,7 +421,7 @@ app.whenReady().then(() => {
 
     autoUpdater.on('update-available', (info: any) => {
       console.log('[AutoUpdater] Update available:', info.version)
-      win?.webContents.send('update-available', {
+      sendToRenderer('update-available', {
         version: info.version,
         releaseNotes: info.releaseNotes
       })
@@ -399,18 +429,18 @@ app.whenReady().then(() => {
 
     autoUpdater.on('update-not-available', () => {
       console.log('[AutoUpdater] Already up to date')
-      win?.webContents.send('update-not-available')
+      sendToRenderer('update-not-available')
     })
 
     autoUpdater.on('download-progress', (progress: any) => {
-      win?.webContents.send('update-progress', {
+      sendToRenderer('update-progress', {
         percent: Math.round(progress.percent)
       })
     })
 
     autoUpdater.on('update-downloaded', () => {
       console.log('[AutoUpdater] Update downloaded, ready to install')
-      win?.webContents.send('update-downloaded')
+      sendToRenderer('update-downloaded')
     })
 
     autoUpdater.on('error', (err: Error) => {

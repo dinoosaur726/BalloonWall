@@ -79,6 +79,9 @@ export type NewCardPosition =
 const CANVAS_WIDTH = 1920
 const CANVAS_HEIGHT = 1080
 const SPAWN_JITTER = 200
+// 상단 32px는 창 드래그 영역이라 그 아래로만 자동 배치/밀어내기를 허용한다
+const MIN_STACK_Y = 40
+const HISTORY_LIMIT = 500
 
 const getSpawnPosition = (position: NewCardPosition = 'middle-left') => {
     const cardW = CARD_WIDTH_REM * REM * 0.85
@@ -108,7 +111,9 @@ const getSpawnPosition = (position: NewCardPosition = 'middle-left') => {
     }
     const [ax, ay] = anchors[position] || anchors['middle-left']
     const jitter = () => (Math.random() - 0.5) * SPAWN_JITTER
-    return { x: ax + jitter(), y: ay + jitter() }
+    const x = Math.min(Math.max(ax + jitter(), 8), CANVAS_WIDTH - cardW - 8)
+    const y = Math.min(Math.max(ay + jitter(), MIN_STACK_Y), CANVAS_HEIGHT - cardH - 8)
+    return { x, y }
 }
 
 interface Rect {
@@ -116,6 +121,18 @@ interface Rect {
     right: number
     top: number
     bottom: number
+}
+
+// 화면 밖으로 나갔거나 좌표가 깨진 스택을 캔버스 안으로 되돌린다 (불러오기/자동 정렬 시 복구용)
+export const clampStackToCanvas = (stack: Stack): Stack => {
+    const width = CARD_WIDTH_REM * REM * stack.scale
+    const height = ((stack.cardIds.length - 1) * STEP_REM + BASE_HEIGHT_REM) * REM * stack.scale
+    const maxX = Math.max(0, CANVAS_WIDTH - width)
+    const maxY = Math.max(0, CANVAS_HEIGHT - height)
+    const x = Number.isFinite(stack.x) ? Math.min(Math.max(stack.x, 0), maxX) : MIN_STACK_Y
+    const y = Number.isFinite(stack.y) ? Math.min(Math.max(stack.y, 0), maxY) : MIN_STACK_Y
+    if (x === stack.x && y === stack.y) return stack
+    return { ...stack, x, y }
 }
 
 const getStackRect = (stack: Stack): Rect => {
@@ -130,7 +147,9 @@ const getStackRect = (stack: Stack): Rect => {
     }
 }
 
-const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId: string): Record<string, Stack> => {
+// 겹치는 위쪽 스택들을 밀어 올린다. 어느 스택이라도 화면 위(MIN_STACK_Y)로 밀려나야만 해결되는
+// 상황이면 null을 반환한다 — 호출자는 이 경우 쌓기/병합을 포기해야 한다 (겹침·화면 이탈 방지)
+const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId: string): Record<string, Stack> | null => {
     const newStacks = { ...stacks }
     const queue = [sourceStackId]
     const processed = new Set<string>()
@@ -150,8 +169,8 @@ const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId:
 
         const currentRect = getStackRect(currentStack)
 
-        Object.values(newStacks).forEach(other => {
-            if (other.id === currentId) return
+        for (const other of Object.values(newStacks)) {
+            if (other.id === currentId) continue
 
             const otherRect = getStackRect(other)
 
@@ -164,13 +183,14 @@ const resolveVerticalCollisions = (stacks: Record<string, Stack>, sourceStackId:
                         const newY = currentRect.top - PADDING - otherHeight
 
                         if (newY < other.y) {
+                            if (newY < MIN_STACK_Y) return null
                             newStacks[other.id] = { ...other, y: newY }
                             queue.push(other.id)
                         }
                     }
                 }
             }
-        })
+        }
     }
 
     return newStacks
@@ -210,7 +230,7 @@ interface GameState {
     moveStack: (stackId: string, x: number, y: number) => void
 
     history: { id: string, type?: 'Normal' | 'Ad' | 'Challenge' | 'Battle', nickname: string, amount: number, timestamp: number }[]
-    loadState: (state: GameState) => void
+    loadState: (state: Partial<GameState>) => void
     resetState: () => void
 
     setSettings: (settings: Partial<Settings>) => void
@@ -265,7 +285,7 @@ export const useStore = create<GameState>((set, get) => ({
             amount,
             timestamp: Date.now()
         }
-        set(state => ({ history: [historyItem, ...state.history] }))
+        set(state => ({ history: [historyItem, ...state.history].slice(0, HISTORY_LIMIT) }))
 
         if (type === 'Ad') {
             if (settings.autoAddAd && amount >= settings.minAmountAd) {
@@ -333,44 +353,44 @@ export const useStore = create<GameState>((set, get) => ({
             isCustomImage
         }
 
-        const stackValues = Object.values(get().stacks)
-        let targetStack: Stack | null = null
-
-        for (const stack of stackValues) {
-            if (stack.cardIds.length > 0) {
-                const firstCardId = stack.cardIds[0]
-                const firstCard = get().cards[firstCardId]
-                if (firstCard && firstCard.amount === amount && firstCard.type === type) {
+        // 이미지 생성(await) 이후의 스택 배치는 반드시 단일 set 안에서 처리한다.
+        // set 밖에서 get()으로 읽은 스냅샷을 쓰면 후원이 연달아 들어올 때 서로의 변경을 덮어쓴다.
+        set(state => {
+            // 같은 금액/종류의 스택을 카드 수가 적은 순으로 시도한다.
+            // 스택 자신이나 밀려나는 이웃 스택이 화면 위로 나가야 하는 후보는 건너뛰고,
+            // 모두 불가능하면 새 스택을 생성한다.
+            const candidates = Object.values(state.stacks)
+                .filter(stack => {
+                    if (stack.cardIds.length === 0) return false
+                    const firstCard = state.cards[stack.cardIds[0]]
+                    if (!firstCard || firstCard.amount !== amount || firstCard.type !== type) return false
                     const nextY = stack.y - (STEP_REM * REM * stack.scale)
-                    if (nextY < 50) {
-                        continue
-                    }
+                    return nextY >= 50
+                })
+                .sort((a, b) => a.cardIds.length - b.cardIds.length)
 
-                    if (!targetStack || stack.cardIds.length <= targetStack.cardIds.length) {
-                        targetStack = stack
+            for (const targetStack of candidates) {
+                const shiftUp = STEP_REM * REM * targetStack.scale
+
+                const updatedStack = {
+                    ...targetStack,
+                    cardIds: [newCard.id, ...targetStack.cardIds],
+                    y: targetStack.y - shiftUp
+                }
+
+                const resolved = resolveVerticalCollisions(
+                    { ...state.stacks, [targetStack.id]: updatedStack },
+                    targetStack.id
+                )
+                if (resolved) {
+                    return {
+                        cards: { ...state.cards, [newCard.id]: newCard },
+                        stacks: resolved
                     }
                 }
             }
-        }
 
-        if (targetStack) {
-            const shiftUp = STEP_REM * REM * targetStack.scale
-
-            const updatedStack = {
-                ...targetStack,
-                cardIds: [newCard.id, ...targetStack.cardIds],
-                y: targetStack.y - shiftUp
-            }
-
-            let nextStacks = { ...get().stacks, [targetStack.id]: updatedStack }
-            nextStacks = resolveVerticalCollisions(nextStacks, targetStack.id)
-
-            set(state => ({
-                cards: { ...state.cards, [newCard.id]: newCard },
-                stacks: nextStacks
-            }))
-        } else {
-            const { x, y } = getSpawnPosition(settings.newCardPosition)
+            const { x, y } = getSpawnPosition(state.settings.newCardPosition)
 
             const newStackId = uuidv4()
             const newStack: Stack = {
@@ -381,11 +401,11 @@ export const useStore = create<GameState>((set, get) => ({
                 scale: 0.85
             }
 
-            set(state => ({
+            return {
                 cards: { ...state.cards, [newCard.id]: newCard },
                 stacks: { ...state.stacks, [newStackId]: newStack },
-            }))
-        }
+            }
+        })
     },
 
     createStack: (cardIds, x, y) => {
@@ -421,6 +441,13 @@ export const useStore = create<GameState>((set, get) => ({
             const targetStack = state.stacks[targetStackId]
             if (!targetStack) return state
 
+            const addCount = cardIds.length
+            const shiftUp = addCount * STEP_REM * REM * targetStack.scale
+            const newY = targetStack.y - shiftUp
+
+            // 합친 스택이 화면 위(MIN_STACK_Y)를 넘게 되면 병합을 거부한다 — 드래그한 카드는 제자리로 돌아간다
+            if (newY < MIN_STACK_Y) return state
+
             const newStacks = { ...state.stacks }
             const sourceResult = updateSourceStack(sourceStack, cardIds)
             if (sourceResult === null) {
@@ -428,16 +455,16 @@ export const useStore = create<GameState>((set, get) => ({
             } else {
                 newStacks[sourceStackId] = sourceResult
             }
-            const addCount = cardIds.length
-            const shiftUp = addCount * STEP_REM * REM * targetStack.scale
 
             newStacks[targetStackId] = {
                 ...targetStack,
                 cardIds: [...cardIds, ...targetStack.cardIds],
-                y: targetStack.y - shiftUp
+                y: newY
             }
 
+            // 위쪽 스택을 밀어낼 공간이 없으면 병합을 거부한다 — 드래그한 카드는 제자리로 돌아간다
             const resolvedStacks = resolveVerticalCollisions(newStacks, targetStackId)
+            if (resolvedStacks === null) return state
 
             return { stacks: resolvedStacks }
         })
@@ -492,21 +519,22 @@ export const useStore = create<GameState>((set, get) => ({
 
     autoOrganize: () => {
         set(state => {
-            const stacks = { ...state.stacks }
-            const stackValues = Object.values(stacks)
-            const singleStacks = stackValues.filter(s => s.cardIds.length === 1)
-            if (singleStacks.length === 0) return {}
+            // 화면 밖으로 나가버린 스택도 이 버튼으로 복구할 수 있도록 먼저 전부 캔버스 안으로 되돌린다
+            const stacks: Record<string, Stack> = {}
+            Object.values(state.stacks).forEach(s => {
+                stacks[s.id] = clampStackToCanvas(s)
+            })
+
+            const singleStacks = Object.values(stacks).filter(s => s.cardIds.length === 1)
+            if (singleStacks.length === 0) return { stacks }
             const cardsToMove: string[] = []
             singleStacks.forEach(s => {
                 cardsToMove.push(...s.cardIds)
                 delete stacks[s.id]
             })
+
             const cardWidthPx = CARD_WIDTH_REM * REM
-            const estimatedHeightPx = (cardsToMove.length * STEP_REM * REM) + (BASE_HEIGHT_REM * REM)
             const SPACING = 20
-            let safeX = 50
-            let safeY = 50
-            let found = false
             const isOverlapping = (x: number, y: number, w: number, h: number) => {
                 return Object.values(stacks).some(s => {
                     const sW = CARD_WIDTH_REM * REM * s.scale
@@ -519,30 +547,43 @@ export const useStore = create<GameState>((set, get) => ({
                     )
                 })
             }
-            let attempt = 0
-            while (attempt < 100) {
-                if (!isOverlapping(safeX, safeY, cardWidthPx, estimatedHeightPx)) {
-                    found = true
-                    break
+
+            // 한 스택이 화면(1080px)을 넘지 않도록 최대 카드 수를 계산해 여러 스택으로 나눈다
+            const MAX_STACK_HEIGHT_PX = 900
+            const maxCardsPerStack = Math.max(1, Math.floor((MAX_STACK_HEIGHT_PX / REM - BASE_HEIGHT_REM) / STEP_REM) + 1)
+
+            for (let i = 0; i < cardsToMove.length; i += maxCardsPerStack) {
+                const chunk = cardsToMove.slice(i, i + maxCardsPerStack)
+                const estimatedHeightPx = ((chunk.length - 1) * STEP_REM + BASE_HEIGHT_REM) * REM
+
+                let safeX = 50
+                let safeY = 50
+                let found = false
+                let attempt = 0
+                while (attempt < 100) {
+                    if (!isOverlapping(safeX, safeY, cardWidthPx, estimatedHeightPx)) {
+                        found = true
+                        break
+                    }
+                    safeX += (cardWidthPx + SPACING)
+                    if (safeX > 1600) {
+                        safeX = 50
+                        safeY += 400
+                    }
+                    attempt++
                 }
-                safeX += (cardWidthPx + SPACING)
-                if (safeX > 1600) {
-                    safeX = 50
-                    safeY += 400
+                if (!found) {
+                    safeX = 50 + Math.random() * 50
+                    safeY = 50 + Math.random() * 50
                 }
-                attempt++
-            }
-            if (!found) {
-                safeX = 50 + Math.random() * 50
-                safeY = 50 + Math.random() * 50
-            }
-            const newStackId = uuidv4()
-            stacks[newStackId] = {
-                id: newStackId,
-                cardIds: cardsToMove,
-                x: safeX,
-                y: safeY,
-                scale: 1
+                const newStackId = uuidv4()
+                stacks[newStackId] = clampStackToCanvas({
+                    id: newStackId,
+                    cardIds: chunk,
+                    x: safeX,
+                    y: safeY,
+                    scale: 1
+                })
             }
             return { stacks }
         })
@@ -561,7 +602,7 @@ export const useStore = create<GameState>((set, get) => ({
             const baseHeight = ((count - 1) * STEP_REM + BASE_HEIGHT_REM) * REM
             const oldHeight = baseHeight * oldScale
             const newHeight = baseHeight * newScale
-            const newY = stack.y + (oldHeight - newHeight)
+            const newY = Math.max(0, stack.y + (oldHeight - newHeight))
             return {
                 stacks: {
                     ...state.stacks,

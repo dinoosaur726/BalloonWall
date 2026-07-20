@@ -86,7 +86,12 @@ function App() {
         window.removeEventListener('keydown', handleKeyDown)
       }
     } else {
+      // 언마운트(또는 StrictMode 재실행) 후에도 onclose 재연결 타이머가 살아남지 않도록 정리한다
+      let disposed = false
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
       const connectWs = () => {
+        if (disposed) return
         const urlParams = new URLSearchParams(window.location.search)
         const wsPort = urlParams.get('wsPort') || '3005'
         const wsHost = window.location.hostname || 'localhost'
@@ -111,7 +116,7 @@ function App() {
                 stacks: stacks || {},
                 settings: syncSettings ? { ...useStore.getState().settings, ...syncSettings } : useStore.getState().settings,
                 history: history || []
-              } as any)
+              })
             }
           } catch (err) {
             console.error('[BrowserMode] Failed to parse WS message:', err)
@@ -119,8 +124,9 @@ function App() {
         }
 
         ws.onclose = () => {
+          if (disposed) return
           console.log('[BrowserMode] WebSocket disconnected, reconnecting in 3s...')
-          setTimeout(connectWs, 3000)
+          reconnectTimer = setTimeout(connectWs, 3000)
         }
 
         ws.onerror = (err) => {
@@ -132,6 +138,8 @@ function App() {
       connectWs()
 
       return () => {
+        disposed = true
+        if (reconnectTimer) clearTimeout(reconnectTimer)
         if (wsRef.current) {
           wsRef.current.close()
           wsRef.current = null
@@ -199,6 +207,10 @@ function App() {
       if (finalY < SNAP_DIST_PX) finalY = 0
       if (finalX + cardWidth > WINDOW_W - SNAP_DIST_PX) finalX = WINDOW_W - cardWidth
       if (finalY + totalHeight > WINDOW_H - SNAP_DIST_PX) finalY = WINDOW_H - totalHeight
+
+      // 화면보다 큰 스택은 하단 스냅 시 y가 음수가 되어 화면 위로 사라진다 — 상단 기준으로 고정
+      finalX = Math.max(0, finalX)
+      finalY = Math.max(0, finalY)
 
       if (settings.snapToStacks) {
         for (const stack of Object.values(stacks)) {
@@ -285,7 +297,8 @@ function App() {
                   if (!cardData) return null
 
                   const dynamicMargin = index > 0 ? `-${IMG_HEIGHT_REM * scale}rem` : '0'
-                  const zIndex = 50 - index
+                  // 50 - index 방식은 51번째 카드부터 z-index가 음수가 되어 캔버스 배경 뒤로 사라진다
+                  const zIndex = stack.cardIds.length - index
                   const shouldHideImage = index > 0
 
                   return (
@@ -332,7 +345,7 @@ function App() {
                     key={cardId}
                     style={{
                       marginTop: dynamicMargin,
-                      zIndex: 50 - i
+                      zIndex: draggedGroupCards.length - i
                     }}
                   >
                     <Card
